@@ -1,0 +1,16 @@
+server: :8089
+
+minio:
+  endpoint: "localhost:9000"
+  accessKey: IUID8yOPM25XR7EnOXLV
+  secretKey: mqPbkZd0Oj9pFtAztJ1m54YEMGrrOqnS9uzHYske
+
+mysql:
+  dsn: "%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local"
+
+redis:
+  addr: "localhost:6379"
+
+jwt:
+  signAlgo: HS256
+  secretKey: dF7mL6oP6uE3fD3dT3vI9rA5bA6kL8aK

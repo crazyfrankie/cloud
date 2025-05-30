@@ -9,8 +9,11 @@ package ioc
 import (
 	"fmt"
 	"github.com/crazyfrankie/cloud/internal/auth"
+	"github.com/crazyfrankie/cloud/internal/file"
+	dao2 "github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/internal/storage"
 	"github.com/crazyfrankie/cloud/internal/user"
+	"github.com/crazyfrankie/cloud/internal/user/dao"
 	"github.com/crazyfrankie/cloud/pkg/conf"
 	"github.com/crazyfrankie/cloud/pkg/middlewares"
 	"github.com/crazyfrankie/snow-flake"
@@ -39,7 +42,9 @@ func InitEngine() *gin.Engine {
 	authHandler := authModule.Handler
 	storageModule := storage.InitStorageModule(client)
 	storageHandler := storageModule.Handler
-	engine := InitWeb(v, userHandler, authHandler, storageHandler)
+	fileModule := file.InitFileModule(db)
+	fileHandler := fileModule.Handler
+	engine := InitWeb(v, userHandler, authHandler, storageHandler, fileHandler)
 	return engine
 }
 
@@ -54,6 +59,8 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
+
+	db.AutoMigrate(&dao.User{}, &dao2.File{}, &dao2.Folder{})
 
 	return db
 }
@@ -86,14 +93,35 @@ func InitSnowflake() *snowflake.Node {
 	return node
 }
 
-func InitWeb(mws []gin.HandlerFunc, user2 *user.Handler, auth2 *auth.Handler, storage2 *storage.Handler) *gin.Engine {
+func InitWeb(mws []gin.HandlerFunc, user2 *user.Handler, auth2 *auth.Handler, storage2 *storage.Handler, file2 *file.Handler) *gin.Engine {
 	srv := gin.Default()
+
+	srv.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
 	srv.Use(mws...)
+
+	srv.Static("/web", "./web")
+	srv.GET("/", func(c *gin.Context) {
+		c.Redirect(302, "/web/")
+	})
 	user2.
 		RegisterRoute(srv)
 	auth2.
 		RegisterRoute(srv)
 	storage2.
+		RegisterRoute(srv)
+	file2.
 		RegisterRoute(srv)
 
 	return srv
@@ -103,6 +131,9 @@ func InitMws(t *auth.TokenService) []gin.HandlerFunc {
 	return []gin.HandlerFunc{middlewares.NewAuthnHandler(t).
 		IgnorePath("/user/register").
 		IgnorePath("/auth/login").
-		Auth(),
+		IgnorePath("/web/").
+		IgnorePath("/web/style.css").
+		IgnorePath("/web/app.js").
+		IgnorePath("/").Auth(),
 	}
 }

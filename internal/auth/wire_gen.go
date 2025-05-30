@@ -19,9 +19,9 @@ func InitAuthModule(u *user.Module, cmd redis.Cmdable) *Module {
 	userService := u.Service
 	tokenService := service.NewTokenService(cmd)
 	authService := service.NewAuthService(userService, tokenService)
-	authHandler := handler.NewAuthHandler(authService)
+	v := handler.NewAuthHandler(authService)
 	module := &Module{
-		Handler: authHandler,
+		Handler: v,
 		Token:   tokenService,
 	}
 	return module

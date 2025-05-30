@@ -19,18 +19,23 @@ func NewStorageService(cli *minio.Client) *StorageService {
 }
 
 func (s *StorageService) Presign(ctx context.Context, uid int64, filename string, typ string) (string, error) {
-	objectKey := fmt.Sprintf("avatar/%d/%s", uid, filename)
-	expire := time.Hour * 24
+	var objectKey string
 	var bucket string
+
 	if typ == "file" {
+		objectKey = fmt.Sprintf("files/%d/%s", uid, filename)
 		bucket = consts.FileBucket
 	} else {
+		objectKey = fmt.Sprintf("avatar/%d/%s", uid, filename)
 		bucket = consts.UserBucket
 	}
+
+	expire := time.Hour * 24
 	preUrl, err := s.client.PresignedPutObject(ctx, bucket, objectKey, expire)
 	if err != nil {
 		return "", err
 	}
 
-	return preUrl.Path, nil
+	// 返回完整的URL而不是只有Path
+	return preUrl.String(), nil
 }

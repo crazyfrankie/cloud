@@ -21,14 +21,19 @@ func NewStorageHandler(svc *service.StorageService) *StorageHandler {
 func (h *StorageHandler) RegisterRoute(r *gin.Engine) {
 	storageGroup := r.Group("storage")
 	{
-		storageGroup.POST("presign/:type", h.AvatarPresign())
+		storageGroup.POST("presign/:type", h.Presign())
 	}
 }
 
-func (h *StorageHandler) AvatarPresign() gin.HandlerFunc {
+func (h *StorageHandler) Presign() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		filename := c.PostForm("filename")
 		typ := c.Param("type")
+
+		if filename == "" {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "filename is required"))
+			return
+		}
 
 		id := c.MustGet("uid")
 		path, err := h.svc.Presign(c.Request.Context(), id.(int64), filename, typ)
@@ -37,6 +42,9 @@ func (h *StorageHandler) AvatarPresign() gin.HandlerFunc {
 			return
 		}
 
-		response.SuccessWithData(c, path)
+		response.SuccessWithData(c, map[string]string{
+			"presignedUrl": path,
+			"filename":     filename,
+		})
 	}
 }

@@ -61,6 +61,11 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 			return
 		}
 
+		// 清除cookies
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie("cloud_access", "", -1, "/", "", false, false)
+		c.SetCookie("cloud_refresh", "", -1, "/", "", false, false)
+
 		response.Success(c)
 	}
 }

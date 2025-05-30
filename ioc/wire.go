@@ -4,7 +4,10 @@ package ioc
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/crazyfrankie/cloud/internal/auth"
+	"github.com/crazyfrankie/cloud/internal/file"
 	"github.com/crazyfrankie/cloud/internal/storage"
 	"github.com/crazyfrankie/cloud/pkg/conf"
 	"github.com/crazyfrankie/cloud/pkg/middlewares"
@@ -12,7 +15,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -20,7 +22,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
+	fdao "github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/internal/user"
+	udao "github.com/crazyfrankie/cloud/internal/user/dao"
 )
 
 func InitDB() *gorm.DB {
@@ -37,6 +41,8 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
+
+	db.AutoMigrate(&udao.User{}, &fdao.File{}, &fdao.Folder{})
 
 	return db
 }
@@ -70,13 +76,35 @@ func InitSnowflake() *snowflake.Node {
 }
 
 func InitWeb(mws []gin.HandlerFunc, user *user.Handler, auth *auth.Handler,
-	storage *storage.Handler) *gin.Engine {
+	storage *storage.Handler, file *file.Handler) *gin.Engine {
 	srv := gin.Default()
+
+	// 添加CORS中间件
+	srv.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
 	srv.Use(mws...)
+
+	// 静态文件服务
+	srv.Static("/web", "./web")
+	srv.GET("/", func(c *gin.Context) {
+		c.Redirect(302, "/web/")
+	})
 
 	user.RegisterRoute(srv)
 	auth.RegisterRoute(srv)
 	storage.RegisterRoute(srv)
+	file.RegisterRoute(srv)
 
 	return srv
 }
@@ -86,7 +114,10 @@ func InitMws(t *auth.TokenService) []gin.HandlerFunc {
 		middlewares.NewAuthnHandler(t).
 			IgnorePath("/user/register").
 			IgnorePath("/auth/login").
-			Auth(),
+			IgnorePath("/web/").
+			IgnorePath("/web/style.css").
+			IgnorePath("/web/app.js").
+			IgnorePath("/").Auth(),
 	}
 }
 
@@ -100,6 +131,7 @@ func InitEngine() *gin.Engine {
 		user.InitUserModule,
 		auth.InitAuthModule,
 		storage.InitStorageModule,
+		file.InitFileModule,
 
 		InitMws,
 		InitWeb,
@@ -108,6 +140,7 @@ func InitEngine() *gin.Engine {
 		wire.FieldsOf(new(*auth.Module), "Handler"),
 		wire.FieldsOf(new(*auth.Module), "Token"),
 		wire.FieldsOf(new(*storage.Module), "Handler"),
+		wire.FieldsOf(new(*file.Module), "Handler"),
 	)
 	return new(gin.Engine)
 }

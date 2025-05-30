@@ -14,14 +14,21 @@ const registerForm = document.getElementById('registerForm');
 const showRegisterLink = document.getElementById('showRegister');
 const showLoginLink = document.getElementById('showLogin');
 const logoutBtn = document.getElementById('logoutBtn');
-const userEmailSpan = document.getElementById('userEmail');
+const userAvatar = document.getElementById('userAvatar');
+const userDropdownMenu = document.getElementById('userDropdownMenu');
+const userProfileBtn = document.getElementById('userProfileBtn');
 const uploadBtn = document.getElementById('uploadBtn');
 const createFolderBtn = document.getElementById('createFolderBtn');
 const uploadModal = document.getElementById('uploadModal');
 const folderModal = document.getElementById('folderModal');
+const profileModal = document.getElementById('profileModal');
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const folderForm = document.getElementById('folderForm');
+const profileForm = document.getElementById('profileForm');
+const changeAvatarBtn = document.getElementById('changeAvatarBtn');
+const avatarInput = document.getElementById('avatarInput');
+const cancelProfileBtn = document.getElementById('cancelProfileBtn');
 const fileListContent = document.getElementById('fileListContent');
 const currentPathSpan = document.getElementById('currentPath');
 
@@ -32,21 +39,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 检查认证状态
-async function checkAuth() {
-    // 通过检查cookie中是否存在认证token来判断用户是否已登录
+function checkAuth() {
     if (hasAuthCookie()) {
-        // 尝试验证用户信息
-        const userInfo = await verifyUserInfo();
-        if (userInfo) {
-            userEmailSpan.textContent = userInfo.NickName; // 使用后端返回的 NickName 字段
-            localStorage.setItem('userNickname', userInfo.NickName);
-            showMainPage();
-            loadFolderContents(currentFolderId);
-        } else {
-            // cookie存在但无效，清理并跳转到登录页
-            clearAuthInfo();
-            showLoginPage();
-        }
+        showMainPage();
+        loadFolderContents(currentFolderId);
+        // 加载用户信息和头像
+        loadUserInfo();
     } else {
         showLoginPage();
     }
@@ -81,11 +79,29 @@ function bindEvents() {
     loginForm.addEventListener('submit', handleLogin);
     registerForm.addEventListener('submit', handleRegister);
     folderForm.addEventListener('submit', handleCreateFolder);
+    profileForm.addEventListener('submit', handleUpdateProfile);
 
     // 按钮点击
     logoutBtn.addEventListener('click', handleLogout);
+    userProfileBtn.addEventListener('click', showUserProfile);
+    changeAvatarBtn.addEventListener('click', () => avatarInput.click());
+    cancelProfileBtn.addEventListener('click', closeProfileModal);
     uploadBtn.addEventListener('click', () => uploadModal.classList.remove('hidden'));
     createFolderBtn.addEventListener('click', () => folderModal.classList.remove('hidden'));
+
+    // 头像上传
+    avatarInput.addEventListener('change', handleAvatarUpload);
+
+    // 用户头像下拉菜单
+    userAvatar.addEventListener('click', toggleUserDropdown);
+    
+    // 点击页面其他地方关闭下拉菜单
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.user-dropdown')) {
+            userDropdownMenu.classList.remove('show');
+            userDropdownMenu.classList.add('hidden');
+        }
+    });
 
     // 模态框关闭
     document.querySelectorAll('.close').forEach(closeBtn => {
@@ -104,6 +120,12 @@ function bindEvents() {
     folderModal.addEventListener('click', (e) => {
         if (e.target === folderModal) {
             folderModal.classList.add('hidden');
+        }
+    });
+
+    profileModal.addEventListener('click', (e) => {
+        if (e.target === profileModal) {
+            profileModal.classList.add('hidden');
         }
     });
 
@@ -169,19 +191,266 @@ async function handleLogin(e) {
         const result = await response.json();
         
         if (result.code === 20000) {
-            // 保存用户信息到localStorage（仅用于显示）
-            localStorage.setItem('userNickname', formData.get('nickname'));
-            
-            // 更新UI
-            userEmailSpan.textContent = formData.get('nickname');
-            showMainPage();
-            loadFolderContents(currentFolderId);
+            // 登录成功后获取真实的用户信息
+            const userInfo = await getUserInfo();
+            if (userInfo) {
+                // 保存并显示用户信息
+                localStorage.setItem('userNickname', userInfo.nickname);
+                updateUserAvatar(userInfo.avatar);
+                showMainPage();
+                loadFolderContents(currentFolderId);
+            } else {
+                // 获取用户信息失败，使用登录表单中的昵称作为备选
+                localStorage.setItem('userNickname', formData.get('nickname'));
+                showMainPage();
+                loadFolderContents(currentFolderId);
+            }
         } else {
             alert(result.msg || '登录失败');
         }
     } catch (error) {
         console.error('Login error:', error);
         alert('登录失败，请检查网络连接');
+    }
+}
+
+async function getUserInfo() {
+    try {
+        const response = await fetch(`${API_BASE}/user`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+
+        const result = await response.json();
+
+        if (result.code === 20000) {
+            return result.data; // 返回用户信息，包含nickname等
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error('Get user info error:', error);
+        return null;
+    }
+}
+
+// 加载用户信息和头像
+async function loadUserInfo() {
+    const userInfo = await getUserInfo();
+    if (userInfo) {
+        localStorage.setItem('userNickname', userInfo.nickname);
+        updateUserAvatar(userInfo.avatar);
+    }
+}
+
+// 更新用户头像
+function updateUserAvatar(avatarUrl) {
+    if (userAvatar && avatarUrl) {
+        userAvatar.src = avatarUrl;
+    }
+}
+
+// 切换用户下拉菜单显示状态
+function toggleUserDropdown(e) {
+    e.stopPropagation();
+    const isHidden = userDropdownMenu.classList.contains('hidden');
+    
+    if (isHidden) {
+        userDropdownMenu.classList.remove('hidden');
+        userDropdownMenu.classList.add('show');
+    } else {
+        userDropdownMenu.classList.add('hidden');
+        userDropdownMenu.classList.remove('show');
+    }
+}
+
+// 显示用户个人信息
+async function showUserProfile() {
+    // 关闭下拉菜单
+    userDropdownMenu.classList.add('hidden');
+    userDropdownMenu.classList.remove('show');
+    
+    // 获取最新的用户信息
+    const userInfo = await getUserInfo();
+    if (userInfo) {
+        // 填充个人信息表单
+        document.getElementById('profileAvatar').src = userInfo.avatar || 'http://localhost:9000/cloud-user/default.jpg';
+        document.getElementById('profileNickname').value = userInfo.nickname || '';
+        document.getElementById('profileBirthday').value = userInfo.birthday ? userInfo.birthday.split(' ')[0] : '';
+        document.getElementById('registerTime').textContent = formatDate(userInfo.utime);
+        
+        // 显示个人信息模态框
+        profileModal.classList.remove('hidden');
+    } else {
+        alert('获取用户信息失败');
+    }
+}
+
+// 关闭个人信息模态框
+function closeProfileModal() {
+    profileModal.classList.add('hidden');
+}
+
+// 处理个人信息更新
+async function handleUpdateProfile(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch(`${API_BASE}/user/update/info`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                nickname: formData.get('nickname'),
+                birthday: formData.get('birthday')
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.code === 20000) {
+            alert('个人信息更新成功！');
+            // 更新本地存储的昵称
+            localStorage.setItem('userNickname', formData.get('nickname'));
+            // 关闭模态框
+            closeProfileModal();
+            // 重新加载用户信息更新头像显示
+            loadUserInfo();
+        } else {
+            alert(result.msg || '更新失败');
+            if (result.code === 40001) {
+                clearAuthInfo();
+                showLoginPage();
+            }
+        }
+    } catch (error) {
+        console.error('Update profile error:', error);
+        alert('更新失败，请检查网络连接');
+    }
+}
+
+// 处理头像上传
+async function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // 检查文件类型
+    if (!file.type.startsWith('image/')) {
+        alert('请选择图片文件！');
+        return;
+    }
+    
+    // 检查文件大小（限制5MB）
+    if (file.size > 5 * 1024 * 1024) {
+        alert('图片文件不能超过5MB！');
+        return;
+    }
+    
+    try {
+        // 1. 获取头像上传的预签名URL
+        const presignResponse = await getAvatarPresignedUrl(file.name);
+        if (!presignResponse.success) {
+            throw new Error(presignResponse.error);
+        }
+
+        // 2. 上传头像到MinIO
+        const uploadResponse = await uploadToMinio(presignResponse.data.presignedUrl, file);
+        if (!uploadResponse) {
+            throw new Error('上传头像失败');
+        }
+
+        // 3. 更新用户头像
+        const updateResponse = await updateUserAvatarInDB(presignResponse.data.objectKey);
+        if (!updateResponse.success) {
+            throw new Error(updateResponse.error);
+        }
+
+        // 4. 更新界面显示
+        const newAvatarUrl = presignResponse.data.presignedUrl.split('?')[0]; // 去掉查询参数
+        document.getElementById('profileAvatar').src = newAvatarUrl;
+        updateUserAvatarDisplay(newAvatarUrl);
+        
+        alert('头像更新成功！');
+    } catch (error) {
+        console.error('Avatar upload error:', error);
+        alert(`头像上传失败: ${error.message}`);
+    }
+}
+
+// 获取头像上传的预签名URL
+async function getAvatarPresignedUrl(filename) {
+    try {
+        // 生成唯一的文件名
+        const timestamp = Date.now();
+        const extension = filename.split('.').pop();
+        const uniqueFilename = `avatar_${timestamp}.${extension}`;
+        
+        const formData = new FormData();
+        formData.append('filename', uniqueFilename);
+
+        const response = await fetch(`${API_BASE}/storage/presign/avatar`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (result.code === 20000) {
+            return { 
+                success: true, 
+                data: {
+                    presignedUrl: result.data.presignedUrl,
+                    objectKey: result.data.objectKey || uniqueFilename
+                }
+            };
+        } else {
+            if (result.code === 40001) {
+                clearAuthInfo();
+                showLoginPage();
+            }
+            return { success: false, error: result.msg || '获取上传链接失败' };
+        }
+    } catch (error) {
+        return { success: false, error: '网络错误' };
+    }
+}
+
+// 更新用户头像到数据库
+async function updateUserAvatarInDB(objectKey) {
+    try {
+        const formData = new FormData();
+        formData.append('object', objectKey);
+
+        const response = await fetch(`${API_BASE}/user/update/avatar`, {
+            method: 'PATCH',
+            credentials: 'include',
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (result.code === 20000) {
+            return { success: true };
+        } else {
+            if (result.code === 40001) {
+                clearAuthInfo();
+                showLoginPage();
+            }
+            return { success: false, error: result.msg || '更新头像失败' };
+        }
+    } catch (error) {
+        return { success: false, error: '网络错误' };
+    }
+}
+
+// 更新用户头像显示
+function updateUserAvatarDisplay(avatarUrl) {
+    if (userAvatar && avatarUrl) {
+        userAvatar.src = avatarUrl;
     }
 }
 
@@ -236,7 +505,7 @@ async function handleLogout() {
 // 加载文件夹内容
 async function loadFolderContents(folderId) {
     try {
-        const response = await fetch(`${API_BASE}/file/list/${folderId}`, {
+        const response = await fetch(`${API_BASE}/folder/${folderId}`, {
             credentials: 'include' // 使用cookie认证
         });
 
@@ -374,7 +643,7 @@ async function handleCreateFolder(e) {
     const folderName = formData.get('folderName');
     
     try {
-        const response = await fetch(`${API_BASE}/file/folder`, {
+        const response = await fetch(`${API_BASE}/folder`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -571,7 +840,7 @@ function enterFolder(folder) {
     // 将当前文件夹加入导航栈
     folderStack.push({
         id: currentFolderId,
-        name: currentFolderId === 0 ? '根目录' : getCurrentFolderName(),
+        name: currentFolderId === 0 ? '/' : getCurrentFolderName(),
         path: currentPath
     });
     
@@ -609,28 +878,7 @@ function goBackToParent() {
 // 获取当前文件夹名称
 function getCurrentFolderName() {
     const pathParts = currentPath.split('/').filter(part => part);
-    return pathParts.length > 0 ? pathParts[pathParts.length - 1] : '根目录';
-}
-
-// 验证用户信息
-async function verifyUserInfo() {
-    try {
-        const response = await fetch(`${API_BASE}/user`, {
-            method: 'GET',
-            credentials: 'include'
-        });
-
-        const result = await response.json();
-        
-        if (result.code === 20000) {
-            return result.data;
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error('Verify user info error:', error);
-        return null;
-    }
+    return pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
 }
 
 // 清理认证信息

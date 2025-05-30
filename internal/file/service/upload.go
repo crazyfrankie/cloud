@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/crazyfrankie/cloud/internal/file/domain"
+	"github.com/crazyfrankie/cloud/internal/file/model"
+	"strconv"
 
 	"github.com/crazyfrankie/cloud/internal/file/dao"
 )
@@ -18,39 +19,53 @@ func NewUploadService(dao *dao.UploadDao) *UploadService {
 }
 
 // Upload 上传文件元数据
-func (s *UploadService) Upload(ctx context.Context, f *dao.File) error {
+func (s *UploadService) Upload(ctx context.Context, req model.CreateFileReq, uid int64) (map[string]any, error) {
+	file := &dao.File{
+		Name:           req.Name,
+		Size:           req.Size,
+		URL:            req.URL,
+		FolderID:       req.FolderID,
+		UID:            uid,
+		DeviceId:       req.DeviceId,
+		LastModifiedBy: strconv.FormatInt(uid, 10),
+	}
 	// 验证文件夹是否存在
-	if f.FolderID != 0 {
-		_, err := s.dao.GetFolderById(ctx, f.UID, f.FolderID)
+	if file.FolderID != 0 {
+		_, err := s.dao.GetFolderById(ctx, file.UID, file.FolderID)
 		if err != nil {
-			return fmt.Errorf("folder not found: %w", err)
+			return nil, fmt.Errorf("folder not found: %w", err)
 		}
 	}
 
-	return s.dao.CreateFile(ctx, f)
+	return s.dao.CreateFile(ctx, file)
 }
 
 // CreateFolder 创建文件夹
-func (s *UploadService) CreateFolder(ctx context.Context, folder *dao.Folder) error {
+func (s *UploadService) CreateFolder(ctx context.Context, req model.CreateFolderReq, uid int64) (map[string]any, error) {
+	folder := &dao.Folder{
+		Name:     req.Name,
+		ParentId: req.ParentId,
+		UserId:   uid,
+	}
 	// 检查同级目录下是否已存在同名文件夹
 	if folder.ParentId != 0 {
 		parent, err := s.dao.GetFolderById(ctx, folder.UserId, folder.ParentId)
 		if err != nil {
-			return fmt.Errorf("parent folder not found: %w", err)
+			return nil, fmt.Errorf("parent folder not found: %w", err)
 		}
 
 		// 检查路径冲突
 		expectedPath := parent.Path + "/" + folder.Name
 		existing, err := s.dao.GetFolderByPath(ctx, folder.UserId, expectedPath)
 		if err == nil && existing != nil {
-			return errors.New("folder already exists")
+			return nil, errors.New("folder already exists")
 		}
 	} else {
 		// 检查根目录下是否已存在同名文件夹
 		expectedPath := "/" + folder.Name
 		existing, err := s.dao.GetFolderByPath(ctx, folder.UserId, expectedPath)
 		if err == nil && existing != nil {
-			return errors.New("folder already exists")
+			return nil, errors.New("folder already exists")
 		}
 	}
 
@@ -64,9 +79,9 @@ func (s *UploadService) ListFolderContents(ctx context.Context, userId int64, fo
 	if err != nil {
 		return nil, err
 	}
-	dFiles := make([]domain.File, 0, len(files))
+	dFiles := make([]model.FileResp, 0, len(files))
 	for _, file := range files {
-		dFiles = append(dFiles, domain.File{
+		dFiles = append(dFiles, model.FileResp{
 			ID:    file.ID,
 			Name:  file.Name,
 			Size:  file.Size,
@@ -79,9 +94,9 @@ func (s *UploadService) ListFolderContents(ctx context.Context, userId int64, fo
 	if err != nil {
 		return nil, err
 	}
-	dFolders := make([]domain.Folder, 0, len(folders))
+	dFolders := make([]model.FolderResp, 0, len(folders))
 	for _, folder := range folders {
-		dFolders = append(dFolders, domain.Folder{
+		dFolders = append(dFolders, model.FolderResp{
 			ID:    folder.ID,
 			Name:  folder.Name,
 			Utime: folder.Utime,

@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/crazyfrankie/cloud/internal/auth/model"
 	"github.com/crazyfrankie/cloud/internal/user/service"
 )
 
@@ -20,14 +21,14 @@ func NewAuthService(user *service.UserService, token *TokenService) *AuthService
 	}
 }
 
-func (s *AuthService) Login(ctx context.Context, name string, password string, ua string) ([]string, error) {
+func (s *AuthService) Login(ctx context.Context, req model.LoginReq, ua string) ([]string, error) {
 	var tokens []string
-	id, pwd, err := s.user.GetUserInfoByName(ctx, name)
+	id, pwd, err := s.user.GetUserInfoByName(ctx, req.NickName)
 	if err != nil {
 		return tokens, err
 	}
 
-	err = bcrypt.CompareHashAndPassword(pwd, []byte(password))
+	err = bcrypt.CompareHashAndPassword(pwd, []byte(req.Password))
 	if err != nil {
 		return tokens, err
 	}

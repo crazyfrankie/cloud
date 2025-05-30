@@ -51,8 +51,17 @@
             <header class="header">
                 <h1>Cloud Storage</h1>
                 <div class="user-info">
-                    <span id="userEmail"></span>
-                    <button id="logoutBtn">退出</button>
+                    <div class="user-dropdown">
+                        <img id="userAvatar" src="http://localhost:9000/cloud-user/default.jpg" alt="用户头像" class="user-avatar">
+                        <div id="userDropdownMenu" class="dropdown-menu hidden">
+                            <div class="dropdown-item" id="userProfileBtn">
+                                <span>个人信息</span>
+                            </div>
+                            <div class="dropdown-item" id="logoutBtn">
+                                <span>退出</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -62,7 +71,7 @@
                     <button id="uploadBtn" class="btn-primary">上传文件</button>
                     <button id="createFolderBtn" class="btn-secondary">新建文件夹</button>
                     <div class="breadcrumb">
-                        <span id="currentPath">/ 根目录</span>
+                        <span id="currentPath">/</span>
                     </div>
                 </div>
 
@@ -111,6 +120,43 @@
                     </div>
                     <button type="submit">创建</button>
                 </form>
+            </div>
+        </div>
+
+        <!-- 个人信息模态框 -->
+        <div id="profileModal" class="modal hidden">
+            <div class="modal-content profile-modal">
+                <span class="close">&times;</span>
+                <h3>个人信息</h3>
+                <div class="profile-content">
+                    <div class="profile-section">
+                        <div class="profile-avatar-section">
+                            <img id="profileAvatar" src="" alt="用户头像" class="profile-avatar">
+                            <button id="changeAvatarBtn" class="btn-secondary">更换头像</button>
+                            <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                        </div>
+                        <div class="profile-info-section">
+                            <form id="profileForm">
+                                <div class="form-group">
+                                    <label for="profileNickname">昵称:</label>
+                                    <input type="text" id="profileNickname" name="nickname" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileBirthday">生日:</label>
+                                    <input type="date" id="profileBirthday" name="birthday">
+                                </div>
+                                <div class="form-group">
+                                    <label>注册时间:</label>
+                                    <span id="registerTime" class="info-text"></span>
+                                </div>
+                                <div class="profile-actions">
+                                    <button type="submit" class="btn-primary">保存修改</button>
+                                    <button type="button" id="cancelProfileBtn" class="btn-secondary">取消</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

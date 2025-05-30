@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/pkg/response"
 	"github.com/crazyfrankie/gem/gerrors"
 	"github.com/gin-gonic/gin"
 
+	"github.com/crazyfrankie/cloud/internal/file/model"
 	"github.com/crazyfrankie/cloud/internal/file/service"
 )
 
@@ -26,22 +26,28 @@ func (h *FileHandler) RegisterRoute(r *gin.Engine) {
 	fileGroup := r.Group("file")
 	{
 		fileGroup.POST("upload", h.Upload())
-		fileGroup.POST("folder", h.CreateFolder())
-		fileGroup.GET("list/:folderId", h.ListFolderContents())
+	}
+	folderGroup := r.Group("folder")
+	{
+		folderGroup.POST("", h.CreateFolder())
+		folderGroup.GET("/:folderId", h.ListFolderContents())
 	}
 }
 
-// Upload 上传文件元数据接口
+// Upload
+// @Summary 上传文件元数据接口
+// @Description 创建新的文件的元数据
+// @Tags File 管理
+// @Accept json
+// @Produce json
+// @Param file body model.CreateFileReq true "File 元数据"
+// @Success 200 {object} response.Response "操作成功，返回成功消息"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /file/upload [post]
 func (h *FileHandler) Upload() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		type Req struct {
-			Name     string `json:"name" binding:"required"`
-			Size     int64  `json:"size" binding:"required"`
-			FolderID int64  `json:"folderId"`
-			URL      string `json:"url" binding:"required"`
-			DeviceId string `json:"deviceId"`
-		}
-		var req Req
+		var req model.CreateFileReq
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error: "+err.Error()))
 			return
@@ -49,41 +55,30 @@ func (h *FileHandler) Upload() gin.HandlerFunc {
 
 		uid := c.MustGet("uid").(int64)
 
-		file := &dao.File{
-			Name:           req.Name,
-			Size:           req.Size,
-			URL:            req.URL,
-			FolderID:       req.FolderID,
-			UID:            uid,
-			DeviceId:       req.DeviceId,
-			LastModifiedBy: strconv.FormatInt(uid, 10),
-		}
-
-		if file.Version == 0 {
-			file.Version = 1
-		}
-
-		err := h.upload.Upload(c.Request.Context(), file)
+		res, err := h.upload.Upload(c.Request.Context(), req, uid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 
-		response.SuccessWithData(c, map[string]interface{}{
-			"fileId": file.ID,
-			"msg":    "upload success",
-		})
+		response.SuccessWithData(c, res)
 	}
 }
 
-// CreateFolder 创建文件夹接口
+// CreateFolder
+// @Summary 创建文件夹接口
+// @Description 创建新的文件夹
+// @Tags Folder 管理
+// @Accept json
+// @Produce json
+// @Param folder body model.CreateFolderReq true "Folder 元数据"
+// @Success 200 {object} response.Response "操作成功，返回成功消息"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /folder [post]
 func (h *FileHandler) CreateFolder() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		type Req struct {
-			Name     string `json:"name" binding:"required"`
-			ParentId int64  `json:"parentId"`
-		}
-		var req Req
+		var req model.CreateFolderReq
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error: "+err.Error()))
 			return
@@ -91,27 +86,27 @@ func (h *FileHandler) CreateFolder() gin.HandlerFunc {
 
 		uid := c.MustGet("uid").(int64)
 
-		folder := &dao.Folder{
-			Name:     req.Name,
-			ParentId: req.ParentId,
-			UserId:   uid,
-		}
-
-		err := h.upload.CreateFolder(c.Request.Context(), folder)
+		res, err := h.upload.CreateFolder(c.Request.Context(), req, uid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 
-		response.SuccessWithData(c, map[string]interface{}{
-			"folderId": folder.ID,
-			"path":     folder.Path,
-			"msg":      "folder created successfully",
-		})
+		response.SuccessWithData(c, res)
 	}
 }
 
-// ListFolderContents 列出文件夹内容接口
+// ListFolderContents
+// @Summary 列出文件夹内容接口
+// @Description 列出文件夹内容包括文件和文件夹
+// @Tags Folder 管理
+// @Accept json
+// @Produce json
+// @Param folderId param string true "Folder ID"
+// @Success 200 {object} response.Response "操作成功，返回成功消息"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /folder/list/:folderId [post]
 func (h *FileHandler) ListFolderContents() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		folderIdStr := c.Param("folderId")

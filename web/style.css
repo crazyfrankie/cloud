@@ -134,6 +134,86 @@ button:hover {
     font-weight: 500;
 }
 
+/* 用户头像下拉菜单样式 */
+.user-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1px solid #ddd;
+    transition: border-color 0.3s ease;
+    object-fit: cover;
+}
+
+.user-avatar:hover {
+    border-color: #667eea;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 100px;
+    z-index: 1000;
+    margin-top: 8px;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.dropdown-menu.hidden {
+    display: none;
+}
+
+.dropdown-menu.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #333;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-item:first-child {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+
+.dropdown-item:last-child {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+.dropdown-item span {
+    font-size: 14px;
+    font-weight: 500;
+}
+
 #logoutBtn {
     width: auto;
     padding: 8px 16px;
@@ -367,6 +447,94 @@ button:hover {
     font-weight: 500;
 }
 
+/* 个人信息模态框样式 */
+.profile-modal {
+    max-width: 600px;
+    width: 90%;
+}
+
+.profile-content {
+    padding: 20px 0;
+}
+
+.profile-section {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+}
+
+.profile-avatar-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    min-width: 150px;
+}
+
+.profile-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #ddd;
+    transition: border-color 0.3s ease;
+}
+
+.profile-avatar:hover {
+    border-color: #667eea;
+}
+
+.profile-info-section {
+    flex: 1;
+}
+
+.profile-info-section .form-group {
+    margin-bottom: 20px;
+}
+
+.info-text {
+    color: #666;
+    font-size: 14px;
+    padding: 8px 0;
+    display: inline-block;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.profile-actions button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+    background: #f8f9fa;
+    color: #666;
+    border: 1px solid #ddd;
+}
+
+.btn-secondary:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .main-content {
@@ -400,5 +568,15 @@ button:hover {
     .breadcrumb {
         margin-left: 0;
         margin-top: 10px;
+    }
+
+    .profile-section {
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .profile-modal {
+        max-width: 95%;
     }
 }

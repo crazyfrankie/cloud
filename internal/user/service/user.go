@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/crazyfrankie/cloud/internal/user/dao"
-	"github.com/crazyfrankie/cloud/internal/user/domain"
+	"github.com/crazyfrankie/cloud/internal/user/model"
 	"github.com/crazyfrankie/cloud/pkg/consts"
 )
 
@@ -39,10 +39,10 @@ func (s *UserService) CreateUser(ctx context.Context, name string, password stri
 	})
 }
 
-func (s *UserService) GetUserInfo(ctx context.Context, uid int64) (domain.User, error) {
+func (s *UserService) GetUserInfo(ctx context.Context, uid int64) (model.UserResp, error) {
 	user, err := s.dao.FindByID(ctx, uid)
 	if err != nil {
-		return domain.User{}, err
+		return model.UserResp{}, err
 	}
 
 	var birthday string
@@ -50,12 +50,11 @@ func (s *UserService) GetUserInfo(ctx context.Context, uid int64) (domain.User, 
 		birthday = user.Birthday.Time.Format(time.DateTime)
 	}
 
-	return domain.User{
+	return model.UserResp{
 		ID:       user.ID,
 		NickName: user.Nickname,
 		Avatar:   user.Avatar,
 		Birthday: birthday,
-		Ctime:    user.Ctime,
 		Utime:    user.Utime,
 	}, nil
 }
@@ -69,34 +68,34 @@ func (s *UserService) GetUserInfoByName(ctx context.Context, name string) (int64
 	return user.ID, user.Password, nil
 }
 
-func (s *UserService) UpdateUserInfo(ctx context.Context, id int64, nickname string, birthday string) (domain.User, error) {
+func (s *UserService) UpdateUserInfo(ctx context.Context, id int64, nickname string, birthday string) (model.UserResp, error) {
 	update := make(map[string]any)
 	if nickname != "" {
 		update["nickname"] = nickname
 	}
 	if birthday != "" {
 		var err error
-		update["birthday"], err = time.Parse(time.DateTime, birthday)
+		update["birthday"], err = time.Parse(time.DateOnly, birthday)
 		if err != nil {
-			return domain.User{}, err
+			return model.UserResp{}, err
 		}
 	}
 
 	newUser, err := s.dao.UpdateUser(ctx, id, update)
 	if err != nil {
-		return domain.User{}, err
+		return model.UserResp{}, err
 	}
 
 	var newBirth string
 	if newUser.Birthday.Valid {
-		newBirth = newUser.Birthday.Time.Format(time.DateTime)
+		newBirth = newUser.Birthday.Time.Format(time.DateOnly)
 	}
 
-	return domain.User{
+	return model.UserResp{
 		ID:       newUser.ID,
 		NickName: newUser.Nickname,
+		Avatar:   newUser.Avatar,
 		Birthday: newBirth,
-		Ctime:    newUser.Ctime,
 		Utime:    newUser.Utime,
 	}, nil
 }

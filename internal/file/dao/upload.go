@@ -15,7 +15,7 @@ func NewUploadDao(db *gorm.DB) *UploadDao {
 	return &UploadDao{db: db}
 }
 
-func (d *UploadDao) CreateFolder(ctx context.Context, folder *Folder) error {
+func (d *UploadDao) CreateFolder(ctx context.Context, folder *Folder) (map[string]any, error) {
 	now := time.Now().Unix()
 	folder.Ctime = now
 	folder.Utime = now
@@ -34,16 +34,26 @@ func (d *UploadDao) CreateFolder(ctx context.Context, folder *Folder) error {
 
 		return tx.WithContext(ctx).Model(&Folder{}).Create(folder).Error
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return err
+	return map[string]any{
+		"folderId": folder.ID,
+		"path":     folder.Path,
+	}, err
 }
 
-func (d *UploadDao) CreateFile(ctx context.Context, file *File) error {
+func (d *UploadDao) CreateFile(ctx context.Context, file *File) (map[string]any, error) {
 	now := time.Now().Unix()
 	file.Ctime = now
 	file.Utime = now
 
-	return d.db.WithContext(ctx).Create(file).Error
+	err := d.db.WithContext(ctx).Create(file).Error
+
+	return map[string]any{
+		"fileId": file.ID,
+	}, err
 }
 
 func (d *UploadDao) GetFolderByPath(ctx context.Context, userId int64, path string) (*Folder, error) {

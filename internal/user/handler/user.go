@@ -6,6 +6,7 @@ import (
 	"github.com/crazyfrankie/gem/gerrors"
 	"github.com/gin-gonic/gin"
 
+	"github.com/crazyfrankie/cloud/internal/user/model"
 	"github.com/crazyfrankie/cloud/internal/user/service"
 	"github.com/crazyfrankie/cloud/pkg/response"
 )
@@ -30,11 +31,7 @@ func (h *UserHandler) RegisterRoute(r *gin.Engine) {
 
 func (h *UserHandler) UserRegister() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		type Req struct {
-			NickName string `json:"nickname"`
-			Password string `json:"password"`
-		}
-		var req Req
+		var req model.RegisterReq
 		if err := c.ShouldBind(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error "+err.Error()))
 			return
@@ -65,18 +62,14 @@ func (h *UserHandler) GetUserInfo() gin.HandlerFunc {
 
 func (h *UserHandler) UpdateUserInfo() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		type Req struct {
-			Nickname string `json:"nickname"`
-			Avatar   string `json:"avatar"`
-		}
-		var req Req
+		var req model.UpdateInfoReq
 		if err := c.ShouldBind(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error "+err.Error()))
 			return
 		}
 
 		id := c.MustGet("uid")
-		updated, err := h.svc.UpdateUserInfo(c.Request.Context(), id.(int64), req.Nickname, req.Avatar)
+		updated, err := h.svc.UpdateUserInfo(c.Request.Context(), id.(int64), req.Nickname, req.Birthday)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return

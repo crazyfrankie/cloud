@@ -78,7 +78,10 @@
                 <!-- 文件列表 -->
                 <div class="file-list">
                     <div class="file-header">
-                        <div class="file-name">名称</div>
+                        <div class="file-name">
+                            <input type="checkbox" id="selectAllCheckbox" style="margin-right: 8px;" onchange="toggleSelectAll()">
+                            名称
+                        </div>
                         <div class="file-size">大小</div>
                         <div class="file-date">修改时间</div>
                         <div class="file-actions">操作</div>

@@ -10,9 +10,11 @@ import (
 )
 
 type Handler = handler.StorageHandler
+type Service = service.StorageService
 
 type Module struct {
 	Handler *Handler
+	Service *Service
 }
 
 func InitStorageModule(minio *minio.Client) *Module {

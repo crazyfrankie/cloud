@@ -349,6 +349,90 @@ button:hover {
     transform: none;
 }
 
+/* 批量操作工具栏样式 */
+#batchToolbar {
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateX(-50%) translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 文件操作按钮样式优化 */
+.action-btn {
+    padding: 4px 8px;
+    margin: 0 2px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    background: #f8f9fa;
+    color: #495057;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.action-btn:active {
+    transform: translateY(1px);
+}
+
+/* 文件版本模态框样式 */
+.versions-modal, .device-modal, .stats-modal {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 复选框样式优化 */
+.file-checkbox {
+    transform: scale(1.1);
+    margin-right: 8px;
+}
+
+#selectAllCheckbox {
+    transform: scale(1.1);
+}
+
+/* 进度条容器样式优化 */
+.upload-progress-container {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-top: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.progress-item {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
 /* 模态框样式 */
 .modal {
     position: fixed;

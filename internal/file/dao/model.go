@@ -5,6 +5,7 @@ type File struct {
 	Name           string `gorm:"not null"`
 	Size           int64  `gorm:"not null"`
 	URL            string `gorm:"not null"`
+	Hash           string `gorm:"type:varchar(128);index"`
 	FolderID       int64  `gorm:"index:folder_uid"`
 	UID            int64  `gorm:"index:folder_uid"`
 	Version        int64  `gorm:"not null;default:1"`
@@ -23,4 +24,13 @@ type Folder struct {
 	Status   int    `gorm:"index:uid_pid_status"`
 	Ctime    int64
 	Utime    int64
+}
+
+// FileStats 文件统计信息结构
+type FileStats struct {
+	TotalFiles     int64 `json:"totalFiles"`
+	TotalSize      int64 `json:"totalSize"`
+	TotalFolders   int64 `json:"totalFolders"`
+	DuplicateFiles int64 `json:"duplicateFiles"`
+	StorageSaved   int64 `json:"storageSaved"`
 }

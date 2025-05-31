@@ -16,9 +16,10 @@ import (
 
 func InitStorageModule(minio2 *minio.Client) *Module {
 	storageService := service.NewStorageService(minio2)
-	storageHandler := handler.NewStorageHandler(storageService)
+	v := handler.NewStorageHandler(storageService)
 	module := &Module{
-		Handler: storageHandler,
+		Handler: v,
+		Service: storageService,
 	}
 	return module
 }
@@ -27,6 +28,9 @@ func InitStorageModule(minio2 *minio.Client) *Module {
 
 type Handler = handler.StorageHandler
 
+type Service = service.StorageService
+
 type Module struct {
 	Handler *Handler
+	Service *Service
 }

@@ -36,15 +36,15 @@ func InitEngine() *gin.Engine {
 	module := user.InitUserModule(db, client, node)
 	cmdable := InitRedis()
 	authModule := auth.InitAuthModule(module, cmdable)
-	tokenService := authModule.Token
-	v := InitMws(tokenService)
-	userHandler := module.Handler
-	authHandler := authModule.Handler
+	v := authModule.Token
+	v2 := InitMws(v)
+	v3 := module.Handler
+	v4 := authModule.Handler
 	storageModule := storage.InitStorageModule(client)
-	storageHandler := storageModule.Handler
-	fileModule := file.InitFileModule(db)
-	fileHandler := fileModule.Handler
-	engine := InitWeb(v, userHandler, authHandler, storageHandler, fileHandler)
+	v5 := storageModule.Handler
+	fileModule := file.InitFileModule(db, storageModule)
+	v6 := fileModule.Handler
+	engine := InitWeb(v2, v3, v4, v5, v6)
 	return engine
 }
 

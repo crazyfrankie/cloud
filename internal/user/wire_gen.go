@@ -20,9 +20,9 @@ import (
 func InitUserModule(db *gorm.DB, minio2 *minio.Client, snow *snowflake.Node) *Module {
 	userDao := dao.NewUserDao(db)
 	userService := service.NewUserService(userDao, snow, minio2)
-	userHandler := handler.NewUserHandler(userService)
+	v := handler.NewUserHandler(userService)
 	module := &Module{
-		Handler: userHandler,
+		Handler: v,
 		Service: userService,
 	}
 	return module

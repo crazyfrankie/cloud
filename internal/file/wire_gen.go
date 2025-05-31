@@ -10,14 +10,16 @@ import (
 	"github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/internal/file/handler"
 	"github.com/crazyfrankie/cloud/internal/file/service"
+	"github.com/crazyfrankie/cloud/internal/storage"
 	"gorm.io/gorm"
 )
 
 // Injectors from wire.go:
 
-func InitFileModule(db *gorm.DB) *Module {
+func InitFileModule(db *gorm.DB, st *storage.Module) *Module {
 	uploadDao := dao.NewUploadDao(db)
-	uploadService := service.NewUploadService(uploadDao)
+	storageService := st.Service
+	uploadService := service.NewUploadService(uploadDao, storageService)
 	v := handler.NewFileHandler(uploadService)
 	module := &Module{
 		Handler: v,

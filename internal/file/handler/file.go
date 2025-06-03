@@ -40,7 +40,6 @@ func (h *FileHandler) RegisterRoute(r *gin.Engine) {
 		fileGroup.POST("/upload/complete", h.CompleteUpload()) // 大文件上传：合并分块并创建文件记录
 
 		fileGroup.GET("/stats", h.GetUserFileStats())           // 获取用户文件统计
-		fileGroup.GET("/:fileId/verify", h.VerifyFile())        // 验证文件完整性
 		fileGroup.GET("/:fileId/versions", h.GetFileVersions()) // 获取文件版本
 	}
 }
@@ -463,38 +462,6 @@ func (h *FileHandler) GetUserFileStats() gin.HandlerFunc {
 		}
 
 		response.SuccessWithData(c, stats)
-	}
-}
-
-// VerifyFile 验证文件完整性
-// @Summary 验证文件完整性
-// @Description 验证文件的完整性和一致性
-// @Tags 文件管理
-// @Accept json
-// @Produce json
-// @Param fileId path string true "文件ID"
-// @Success 200 {object} response.Response{data=map[string]bool} "操作成功"
-// @Failure 400 {object} response.Response "参数错误(code=20001)"
-// @Failure 500 {object} response.Response "系统错误(code=50000)"
-// @Router /files/{fileId}/verify [get]
-func (h *FileHandler) VerifyFile() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		fileIdStr := c.Param("fileId")
-		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file id"))
-			return
-		}
-
-		uid := c.MustGet("uid").(int64)
-
-		isValid, err := h.file.VerifyFile(c.Request.Context(), uid, fileId)
-		if err != nil {
-			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
-			return
-		}
-
-		response.SuccessWithData(c, map[string]bool{"valid": isValid})
 	}
 }
 

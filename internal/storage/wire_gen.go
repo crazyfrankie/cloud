@@ -7,7 +7,6 @@
 package storage
 
 import (
-	"github.com/crazyfrankie/cloud/internal/storage/handler"
 	"github.com/crazyfrankie/cloud/internal/storage/service"
 	"github.com/minio/minio-go/v7"
 )
@@ -16,9 +15,7 @@ import (
 
 func InitStorageModule(minio2 *minio.Client) *Module {
 	storageService := service.NewStorageService(minio2)
-	v := handler.NewStorageHandler(storageService)
 	module := &Module{
-		Handler: v,
 		Service: storageService,
 	}
 	return module
@@ -26,11 +23,8 @@ func InitStorageModule(minio2 *minio.Client) *Module {
 
 // wire.go:
 
-type Handler = handler.StorageHandler
-
 type Service = service.StorageService
 
 type Module struct {
-	Handler *Handler
 	Service *Service
 }

@@ -26,7 +26,6 @@ func NewFileService(dao *dao.FileDao, storageService *service.StorageService) *F
 
 // PreUploadCheck 预上传检查，检查文件是否已存在
 func (s *FileService) PreUploadCheck(ctx context.Context, req model.PreUploadCheckReq, uid int64) (*model.PreUploadCheckResp, error) {
-	// 验证父目录是否存在
 	if req.ParentPath != "/" {
 		exists, err := s.dao.PathExists(ctx, uid, req.ParentPath, true)
 		if err != nil {
@@ -37,7 +36,6 @@ func (s *FileService) PreUploadCheck(ctx context.Context, req model.PreUploadChe
 		}
 	}
 
-	// 检查文件是否已存在（基于哈希值）
 	exists, existingFile, err := s.dao.CheckFileExists(ctx, uid, req.Hash)
 	if err != nil {
 		return nil, fmt.Errorf("check file exists error: %w", err)
@@ -642,34 +640,6 @@ func (s *FileService) GetFileVersionsByHash(ctx context.Context, uid int64, hash
 	}
 
 	return versions, nil
-}
-
-// VerifyFile 验证文件完整性
-func (s *FileService) VerifyFile(ctx context.Context, uid int64, fileId int64) (bool, error) {
-	file, err := s.dao.GetFileById(ctx, fileId, uid)
-	if err != nil {
-		return false, fmt.Errorf("file not found: %w", err)
-	}
-
-	if file.IsDir {
-		return true, nil // 文件夹不需要验证
-	}
-
-	if file.URL == "" {
-		return false, errors.New("file has no storage URL")
-	}
-
-	objectKey := s.storageService.ExtractObjectKey(file.URL)
-	if objectKey == "" {
-		return false, errors.New("invalid file URL")
-	}
-
-	objectInfo, err := s.storageService.GetObjectInfo(ctx, objectKey)
-	if err != nil {
-		return false, fmt.Errorf("storage object not found: %w", err)
-	}
-
-	return objectInfo.Size == file.Size, nil
 }
 
 // buildFilePath 构建完整的文件/文件夹路径

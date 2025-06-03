@@ -42,7 +42,7 @@ func InitDB() *gorm.DB {
 		panic(err)
 	}
 
-	db.AutoMigrate(&udao.User{}, &fdao.File{}, &fdao.Folder{})
+	db.AutoMigrate(&udao.User{}, &fdao.File{})
 
 	return db
 }
@@ -79,27 +79,7 @@ func InitWeb(mws []gin.HandlerFunc, user *user.Handler, auth *auth.Handler,
 	storage *storage.Handler, file *file.Handler) *gin.Engine {
 	srv := gin.Default()
 
-	// 添加CORS中间件
-	srv.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
 	srv.Use(mws...)
-
-	// 静态文件服务
-	srv.Static("/web", "./web")
-	srv.GET("/", func(c *gin.Context) {
-		c.Redirect(302, "/web/")
-	})
 
 	user.RegisterRoute(srv)
 	auth.RegisterRoute(srv)
@@ -111,13 +91,24 @@ func InitWeb(mws []gin.HandlerFunc, user *user.Handler, auth *auth.Handler,
 
 func InitMws(t *auth.TokenService) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
+		func(c *gin.Context) {
+			c.Header("Access-Control-Allow-Origin", "http://localhost:8080")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+			c.Header("Access-Control-Allow-Credentials", "true")
+
+			if c.Request.Method == "OPTIONS" {
+				c.AbortWithStatus(204)
+				return
+			}
+
+			c.Next()
+		},
+
 		middlewares.NewAuthnHandler(t).
 			IgnorePath("/user/register").
 			IgnorePath("/auth/login").
-			IgnorePath("/web/").
-			IgnorePath("/web/style.css").
-			IgnorePath("/web/app.js").
-			IgnorePath("/").Auth(),
+			Auth(),
 	}
 }
 

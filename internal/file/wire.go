@@ -19,8 +19,8 @@ type Module struct {
 
 func InitFileModule(db *gorm.DB, st *storage.Module) *Module {
 	wire.Build(
-		dao.NewUploadDao,
-		service.NewUploadService,
+		dao.NewFileDao,
+		service.NewFileService,
 		handler.NewFileHandler,
 
 		wire.FieldsOf(new(*storage.Module), "Service"),

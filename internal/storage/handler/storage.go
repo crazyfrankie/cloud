@@ -23,36 +23,10 @@ func (h *StorageHandler) RegisterRoute(r *gin.Engine) {
 	storageGroup := r.Group("storage")
 	{
 		storageGroup.POST("presign/:type", h.Presign())
-		storageGroup.POST("presign-with-policy/:type", h.PresignWithPolicy()) // 新增严格策略的预签名接口
 	}
 }
 
 func (h *StorageHandler) Presign() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		filename := c.PostForm("filename")
-		typ := c.Param("type")
-
-		if filename == "" {
-			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "filename is required"))
-			return
-		}
-
-		id := c.MustGet("uid")
-		path, err := h.svc.Presign(c.Request.Context(), id.(int64), filename, typ)
-		if err != nil {
-			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
-			return
-		}
-
-		response.SuccessWithData(c, map[string]string{
-			"presignedUrl": path,
-			"filename":     filename,
-		})
-	}
-}
-
-// PresignWithPolicy 生成带严格策略的预签名URL
-func (h *StorageHandler) PresignWithPolicy() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		filename := c.PostForm("filename")
 		fileSizeStr := c.PostForm("fileSize")

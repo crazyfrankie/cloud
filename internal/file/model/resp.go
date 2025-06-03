@@ -1,35 +1,42 @@
 package model
 
+// FileResp 统一的文件/文件夹响应
 type FileResp struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Size  int64  `json:"size"`
-	URL   string `json:"url"`
-	Hash  string `json:"hash"`
-	Utime int64  `json:"utime"`
+	ID     int64  `json:"id"`     // 文件/文件夹ID
+	Name   string `json:"name"`   // 名称
+	Path   string `json:"path"`   // 完整路径
+	IsDir  bool   `json:"isDir"`  // 是否为文件夹
+	Size   int64  `json:"size"`   // 大小（文件夹为0）
+	URL    string `json:"url"`    // 文件URL（文件夹为空）
+	Hash   string `json:"hash"`   // 文件哈希（文件夹为空）
+	Ctime  int64  `json:"ctime"`  // 创建时间
+	Utime  int64  `json:"utime"`  // 更新时间
+	Status int    `json:"status"` // 状态
 }
 
 // PreUploadCheckResp 预上传检查响应
 type PreUploadCheckResp struct {
 	FileExists   bool   `json:"fileExists"`   // 文件是否已存在
 	FileID       int64  `json:"fileId"`       // 如果存在，返回文件ID
+	FilePath     string `json:"filePath"`     // 如果存在，返回文件路径
 	PresignedUrl string `json:"presignedUrl"` // 如果不存在，返回预签名URL
 	ObjectKey    string `json:"objectKey"`    // 对象键
 }
 
-type FolderResp struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	Utime    int64  `json:"utime"`
-	Path     string `json:"path"`
-	ParentID int64  `json:"parentID"`
+// ListContentsResp 目录内容响应
+type ListContentsResp struct {
+	Path     string      `json:"path"`     // 当前目录路径
+	Contents []*FileResp `json:"contents"` // 目录内容（文件+文件夹）
+	Total    int         `json:"total"`    // 总数量
 }
 
 // FileStatsResp 文件统计响应
 type FileStatsResp struct {
-	TotalFiles int64            `json:"totalFiles"`
-	TotalSize  int64            `json:"totalSize"`
-	FileTypes  map[string]int64 `json:"fileTypes"`
+	TotalFiles   int64 `json:"totalFiles"`   // 总文件数
+	TotalFolders int64 `json:"totalFolders"` // 总文件夹数
+	TotalSize    int64 `json:"totalSize"`    // 总大小
+	TotalSpace   int64 `json:"totalSpace"`   // 总空间
+	UsedSpace    int64 `json:"usedSpace"`    // 已用空间
 }
 
 // FileVersionResp 文件版本响应
@@ -39,15 +46,18 @@ type FileVersionResp struct {
 	Hash      string `json:"hash"`
 	Size      int64  `json:"size"`
 	URL       string `json:"url"`
+	Path      string `json:"path"`
 	DeviceId  string `json:"deviceId"`
 	CreatedAt int64  `json:"createdAt"`
 }
 
-// InitChunkedUploadResp 分块上传初始化响应
-type InitChunkedUploadResp struct {
-	UploadId  string           `json:"uploadId"`
-	ChunkUrls []ChunkUploadUrl `json:"chunkUrls"`
-	ExpiresIn int64            `json:"expiresIn"`
+// CreateItemResp 创建文件/文件夹响应
+type CreateItemResp struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	IsDir bool   `json:"isDir"`
+	Ctime int64  `json:"ctime"`
 }
 
 // ChunkUploadUrl 分块上传URL
@@ -56,15 +66,18 @@ type ChunkUploadUrl struct {
 	PresignedUrl string `json:"presignedUrl"`
 }
 
-// UploadChunkResp 分块上传响应
-type UploadChunkResp struct {
-	PartNumber int    `json:"partNumber"`
-	ETag       string `json:"etag"`
-}
-
-// CompleteChunkedUploadResp 完成分块上传响应
-type CompleteChunkedUploadResp struct {
-	FileID  int64  `json:"fileId"`
-	FileUrl string `json:"fileUrl"`
-	Message string `json:"message"`
+// OptimizedInitUploadResp 优化的分块上传初始化响应
+type OptimizedInitUploadResp struct {
+	UploadId               string           `json:"uploadId"`
+	ChunkUrls              []ChunkUploadUrl `json:"chunkUrls"`
+	ExpiresIn              int64            `json:"expiresIn"`
+	RecommendedConcurrency int              `json:"recommendedConcurrency"`
+	OptimalChunkSize       int64            `json:"optimalChunkSize"`
+	TotalChunks            int              `json:"totalChunks"`
+	UploadMethod           string           `json:"uploadMethod"`              // "direct-to-storage" 或 "fast"
+	FileExists             bool             `json:"fileExists"`                // 文件是否已存在（秒传）
+	FileID                 int64            `json:"fileId,omitempty"`          // 如果文件已存在，返回文件ID
+	FileURL                string           `json:"fileUrl,omitempty"`         // 如果文件已存在，返回文件URL
+	Message                string           `json:"message,omitempty"`         // 附加信息
+	ServerSignature        string           `json:"serverSignature,omitempty"` // 服务器签名，用于验证
 }

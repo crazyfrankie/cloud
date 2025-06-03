@@ -17,12 +17,12 @@ import (
 // Injectors from wire.go:
 
 func InitFileModule(db *gorm.DB, st *storage.Module) *Module {
-	uploadDao := dao.NewUploadDao(db)
+	fileDao := dao.NewFileDao(db)
 	storageService := st.Service
-	uploadService := service.NewUploadService(uploadDao, storageService)
-	v := handler.NewFileHandler(uploadService)
+	fileService := service.NewFileService(fileDao, storageService)
+	fileHandler := handler.NewFileHandler(fileService)
 	module := &Module{
-		Handler: v,
+		Handler: fileHandler,
 	}
 	return module
 }

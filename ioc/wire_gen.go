@@ -36,15 +36,15 @@ func InitEngine() *gin.Engine {
 	module := user.InitUserModule(db, client, node)
 	cmdable := InitRedis()
 	authModule := auth.InitAuthModule(module, cmdable)
-	v := authModule.Token
-	v2 := InitMws(v)
-	v3 := module.Handler
-	v4 := authModule.Handler
+	tokenService := authModule.Token
+	v := InitMws(tokenService)
+	userHandler := module.Handler
+	authHandler := authModule.Handler
 	storageModule := storage.InitStorageModule(client)
-	v5 := storageModule.Handler
+	storageHandler := storageModule.Handler
 	fileModule := file.InitFileModule(db, storageModule)
-	v6 := fileModule.Handler
-	engine := InitWeb(v2, v3, v4, v5, v6)
+	fileHandler := fileModule.Handler
+	engine := InitWeb(v, userHandler, authHandler, storageHandler, fileHandler)
 	return engine
 }
 
@@ -60,7 +60,7 @@ func InitDB() *gorm.DB {
 		panic(err)
 	}
 
-	db.AutoMigrate(&dao.User{}, &dao2.File{}, &dao2.Folder{})
+	db.AutoMigrate(&dao.User{}, &dao2.File{})
 
 	return db
 }
@@ -96,25 +96,7 @@ func InitSnowflake() *snowflake.Node {
 func InitWeb(mws []gin.HandlerFunc, user2 *user.Handler, auth2 *auth.Handler, storage2 *storage.Handler, file2 *file.Handler) *gin.Engine {
 	srv := gin.Default()
 
-	srv.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
 	srv.Use(mws...)
-
-	srv.Static("/web", "./web")
-	srv.GET("/", func(c *gin.Context) {
-		c.Redirect(302, "/web/")
-	})
 	user2.
 		RegisterRoute(srv)
 	auth2.
@@ -128,12 +110,22 @@ func InitWeb(mws []gin.HandlerFunc, user2 *user.Handler, auth2 *auth.Handler, st
 }
 
 func InitMws(t *auth.TokenService) []gin.HandlerFunc {
-	return []gin.HandlerFunc{middlewares.NewAuthnHandler(t).
-		IgnorePath("/user/register").
-		IgnorePath("/auth/login").
-		IgnorePath("/web/").
-		IgnorePath("/web/style.css").
-		IgnorePath("/web/app.js").
-		IgnorePath("/").Auth(),
+	return []gin.HandlerFunc{
+		func(c *gin.Context) {
+			c.Header("Access-Control-Allow-Origin", "http://localhost:8080")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+			c.Header("Access-Control-Allow-Credentials", "true")
+
+			if c.Request.Method == "OPTIONS" {
+				c.AbortWithStatus(204)
+				return
+			}
+
+			c.Next()
+		}, middlewares.NewAuthnHandler(t).
+			IgnorePath("/user/register").
+			IgnorePath("/auth/login").
+			Auth(),
 	}
 }

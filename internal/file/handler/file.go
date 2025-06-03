@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -41,6 +42,12 @@ func (h *FileHandler) RegisterRoute(r *gin.Engine) {
 
 		fileGroup.GET("/stats", h.GetUserFileStats())           // 获取用户文件统计
 		fileGroup.GET("/:fileId/versions", h.GetFileVersions()) // 获取文件版本
+
+		// 新增预览和下载接口
+		fileGroup.GET("/:fileId/preview", h.PreviewFile())    // 统一文件预览接口
+		fileGroup.GET("/:fileId/download", h.DownloadFile())  // 统一文件下载接口
+		fileGroup.GET("/:fileId/text", h.PreviewTextFile())   // 文本文件预览接口
+		fileGroup.GET("/:fileId/thumbnail", h.GetThumbnail()) // 获取文件缩略图
 	}
 }
 
@@ -398,7 +405,7 @@ func (h *FileHandler) InitUpload() gin.HandlerFunc {
 
 		uid := c.MustGet("uid").(int64)
 
-		resp, err := h.file.OptimizedInitUpload(c.Request.Context(), uid, req)
+		resp, err := h.file.InitUpload(c.Request.Context(), uid, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -501,5 +508,196 @@ func (h *FileHandler) GetFileVersions() gin.HandlerFunc {
 		}
 
 		response.SuccessWithData(c, versions)
+	}
+}
+
+// PreviewFile 统一文件预览接口
+// @Summary 统一文件预览接口
+// @Description 根据文件类型智能决定预览方式：可预览文件返回预览页面，不可预览文件自动下载
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param fileId path int true "文件ID"
+// @Success 200 {object} response.Response "操作成功"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 404 {object} response.Response "文件不存在(code=40004)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/{fileId}/preview [get]
+func (h *FileHandler) PreviewFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileIdStr := c.Param("fileId")
+		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file ID"))
+			return
+		}
+
+		uid := c.MustGet("uid").(int64)
+
+		// 获取文件信息
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		if err != nil {
+			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
+			return
+		}
+
+		// 判断文件操作类型
+		actionInfo := h.file.GetFileActionInfo(fileId, fileInfo.Name, fileInfo.URL)
+
+		switch actionInfo.Action {
+		case "preview":
+			// 可预览文件，重定向到MinIO原生URL
+			c.Redirect(http.StatusFound, fileInfo.URL)
+		case "text":
+			// 文本文件，返回文本内容预览
+			c.Redirect(http.StatusFound, fmt.Sprintf("/api/files/%d/text", fileId))
+		case "download":
+			// 不可预览文件，直接下载
+			c.Redirect(http.StatusFound, fmt.Sprintf("/api/files/%d/download", fileId))
+		default:
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, "unknown file action"))
+		}
+	}
+}
+
+// DownloadFile 统一文件下载接口
+// @Summary 统一文件下载接口
+// @Description 提供统一的文件下载功能，设置正确的文件名和Content-Disposition
+// @Tags 文件管理
+// @Accept json
+// @Produce octet-stream
+// @Param fileId path int true "文件ID"
+// @Success 200 {file} binary "文件内容"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 404 {object} response.Response "文件不存在(code=40004)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/{fileId}/download [get]
+func (h *FileHandler) DownloadFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileIdStr := c.Param("fileId")
+		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file ID"))
+			return
+		}
+
+		uid := c.MustGet("uid").(int64)
+
+		// 获取文件信息
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		if err != nil {
+			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
+			return
+		}
+
+		// 设置下载相关的响应头 - 强制下载
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileInfo.Name))
+		c.Header("Content-Type", "application/octet-stream")
+
+		// 从URL中提取对象键
+		objectKey := h.file.GetObjectKeyFromURL(fileInfo.URL)
+		if objectKey == "" {
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, "invalid file URL"))
+			return
+		}
+
+		// 获取文件下载信息
+		downloadInfo, err := h.file.DownloadFile(c.Request.Context(), fileId, uid)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
+			return
+		}
+		defer downloadInfo.Object.Close()
+
+		// 直接将文件流传输给客户端，强制作为下载处理
+		c.Header("Content-Length", fmt.Sprintf("%d", downloadInfo.Size))
+		c.DataFromReader(http.StatusOK, downloadInfo.Size, "application/octet-stream", downloadInfo.Object, nil)
+	}
+}
+
+// PreviewTextFile 文本文件预览接口
+// @Summary 文本文件预览接口
+// @Description 提供文本文件的在线预览功能
+// @Tags 文件管理
+// @Accept json
+// @Produce plain
+// @Param fileId path int true "文件ID"
+// @Success 200 {string} string "文本内容"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 404 {object} response.Response "文件不存在(code=40004)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/{fileId}/text [get]
+func (h *FileHandler) PreviewTextFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileIdStr := c.Param("fileId")
+		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file ID"))
+			return
+		}
+
+		uid := c.MustGet("uid").(int64)
+
+		// 获取文件信息
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		if err != nil {
+			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
+			return
+		}
+
+		// 验证是否为文本文件
+		actionInfo := h.file.GetFileActionInfo(fileId, fileInfo.Name, fileInfo.URL)
+		if actionInfo.Action != "text" {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "file is not a text file"))
+			return
+		}
+
+		// 重定向到前端的文本预览页面
+		textPreviewURL := fmt.Sprintf("/text-preview/%d", fileId)
+		c.Redirect(http.StatusFound, textPreviewURL)
+	}
+}
+
+// GetThumbnail 获取文件缩略图
+// @Summary 获取文件缩略图
+// @Description 获取支持缩略图的文件的缩略图
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param fileId path int true "文件ID"
+// @Success 200 {object} response.Response{data=map[string]string} "操作成功"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 404 {object} response.Response "文件不存在(code=40004)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/{fileId}/thumbnail [get]
+func (h *FileHandler) GetThumbnail() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileIdStr := c.Param("fileId")
+		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file ID"))
+			return
+		}
+
+		uid := c.MustGet("uid").(int64)
+
+		// 获取文件信息
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		if err != nil {
+			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
+			return
+		}
+
+		// 检查是否支持缩略图
+		actionInfo := h.file.GetFileActionInfo(fileId, fileInfo.Name, fileInfo.URL)
+		if !actionInfo.HasThumbnail {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "file does not support thumbnail"))
+			return
+		}
+
+		// 返回缩略图URL（这里可以实现实际的缩略图生成逻辑）
+		response.SuccessWithData(c, map[string]string{
+			"thumbnailUrl": fileInfo.URL, // 临时返回原始URL，后续可以实现真正的缩略图服务
+		})
 	}
 }

@@ -9,10 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/crazyfrankie/cloud/pkg/utils"
+
 	"github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/internal/file/model"
 	storagem "github.com/crazyfrankie/cloud/internal/storage/model"
 	"github.com/crazyfrankie/cloud/internal/storage/service"
+	"github.com/minio/minio-go/v7"
 )
 
 type FileService struct {
@@ -174,7 +177,7 @@ func (s *FileService) ListPathContents(ctx context.Context, uid int64, path stri
 	// 转换为响应格式
 	contents := make([]*model.FileResp, 0, len(files))
 	for _, file := range files {
-		contents = append(contents, &model.FileResp{
+		fileResp := &model.FileResp{
 			ID:     file.ID,
 			Name:   file.Name,
 			Path:   file.Path,
@@ -185,7 +188,20 @@ func (s *FileService) ListPathContents(ctx context.Context, uid int64, path stri
 			Ctime:  file.Ctime,
 			Utime:  file.Utime,
 			Status: file.Status,
-		})
+		}
+
+		// 如果是文件（非文件夹），添加操作信息
+		if !file.IsDir {
+			actionInfo := s.GetFileActionInfo(file.ID, file.Name, file.URL)
+			fileResp.Action = string(actionInfo.Action)
+			fileResp.PreviewURL = fmt.Sprintf("/api/files/%d/preview", file.ID)
+			fileResp.DownloadURL = fmt.Sprintf("/api/files/%d/download", file.ID)
+			fileResp.Previewable = actionInfo.Previewable
+			fileResp.HasThumbnail = actionInfo.HasThumbnail
+			fileResp.ContentType = actionInfo.ContentType
+		}
+
+		contents = append(contents, fileResp)
 	}
 
 	return &model.ListContentsResp{
@@ -335,8 +351,8 @@ func (s *FileService) copyFolderRecursive(ctx context.Context, uid int64, source
 	return nil
 }
 
-// OptimizedInitUpload 初始化优化的分块上传
-func (s *FileService) OptimizedInitUpload(ctx context.Context, uid int64, req model.InitUploadReq) (*model.OptimizedInitUploadResp, error) {
+// InitUpload 初始化优化的分块上传
+func (s *FileService) InitUpload(ctx context.Context, uid int64, req model.InitUploadReq) (*model.InitUploadResp, error) {
 	// 验证父目录是否存在
 	if req.ParentPath != "/" {
 		exists, err := s.dao.PathExists(ctx, uid, req.ParentPath, true)
@@ -356,7 +372,7 @@ func (s *FileService) OptimizedInitUpload(ctx context.Context, uid int64, req mo
 
 	if exists {
 		// 文件已存在，直接返回现有文件信息（秒传）
-		return &model.OptimizedInitUploadResp{
+		return &model.InitUploadResp{
 			FileExists: true,
 			FileID:     existingFile.ID,
 			FileURL:    existingFile.URL,
@@ -366,8 +382,8 @@ func (s *FileService) OptimizedInitUpload(ctx context.Context, uid int64, req mo
 
 	// 文件不存在，需要上传
 	// 计算最优分块大小和并发数
-	chunkSize := calculateOptimalChunkSize(req.Size)
-	concurrency := calculateRecommendedConcurrency(req.Size)
+	chunkSize := utils.CalculateOptimalChunkSize(req.Size)
+	concurrency := utils.CalculateRecommendedConcurrency(req.Size)
 	totalChunks := int((req.Size + chunkSize - 1) / chunkSize)
 
 	// 生成上传ID
@@ -391,7 +407,7 @@ func (s *FileService) OptimizedInitUpload(ctx context.Context, uid int64, req mo
 		}
 	}
 
-	return &model.OptimizedInitUploadResp{
+	return &model.InitUploadResp{
 		FileExists:             false,
 		UploadId:               uploadId,
 		OptimalChunkSize:       chunkSize,
@@ -462,7 +478,7 @@ func (s *FileService) OptimizedCompleteUpload(ctx context.Context, uid int64, up
 	}
 
 	// 生成最终文件URL
-	fileUrl := fmt.Sprintf("%s/%s/%s", "http://localhost:9000", "cloud-files", finalObjectKey)
+	fileUrl := fmt.Sprintf("%s/%s/%s", "http://localhost:9000", "cloud-file", finalObjectKey)
 
 	// 创建文件记录
 	file := &dao.File{
@@ -490,12 +506,12 @@ func (s *FileService) OptimizedCompleteUpload(ctx context.Context, uid int64, up
 				file.Size = expectedSize
 			} else {
 				// 如果解析失败，估算大小
-				chunkSize := calculateOptimalChunkSize(0) // 使用默认分块大小
+				chunkSize := utils.CalculateOptimalChunkSize(0) // 使用默认分块大小
 				file.Size = int64(len(req.UploadedChunks)) * chunkSize
 			}
 		} else {
 			// 如果uploadId格式不正确，估算大小
-			chunkSize := calculateOptimalChunkSize(0)
+			chunkSize := utils.CalculateOptimalChunkSize(0)
 			file.Size = int64(len(req.UploadedChunks)) * chunkSize
 		}
 	}
@@ -667,42 +683,53 @@ func (s *FileService) validatePath(path string) error {
 	return nil
 }
 
-// 计算最优分块大小
-func calculateOptimalChunkSize(fileSize int64) int64 {
-	if fileSize <= 0 {
-		return 5 * 1024 * 1024 // 默认 5MB
+// GetFileActionInfo 获取文件操作信息
+func (s *FileService) GetFileActionInfo(fileID int64, filename string, originalURL string) *utils.FileActionInfo {
+	ext := strings.ToLower(filepath.Ext(filename))
+	config := utils.GetFilePreviewConfig()
+	action := s.DetermineFileAction(filename)
+
+	info := &utils.FileActionInfo{
+		Action:       action,
+		Previewable:  config.PreviewableTypes[ext],
+		Downloadable: true, // 所有文件都可以下载
+		HasThumbnail: config.ThumbnailTypes[ext],
+		ContentType:  utils.GetContentType(ext),
 	}
 
-	// 根据文件大小确定合适的分块大小
-	switch {
-	case fileSize < 10*1024*1024: // 小于 10MB
-		return 1 * 1024 * 1024 // 1MB
-	case fileSize < 100*1024*1024: // 小于 100MB
-		return 5 * 1024 * 1024 // 5MB
-	case fileSize < 1024*1024*1024: // 小于 1GB
-		return 10 * 1024 * 1024 // 10MB
-	default: // 大于 1GB
-		return 20 * 1024 * 1024 // 20MB
+	// 根据操作类型设置URL
+	switch action {
+	case utils.ActionPreview:
+		// 可预览文件使用原始URL
+		info.URL = originalURL
+	case utils.ActionText:
+		// 文本文件使用专门的文本预览接口
+		info.URL = fmt.Sprintf("/api/files/%d/text", fileID)
+	case utils.ActionDownload:
+		// 不可预览文件使用下载接口
+		info.URL = fmt.Sprintf("/api/files/%d/download", fileID)
 	}
+
+	return info
 }
 
-// 计算推荐的并发数
-func calculateRecommendedConcurrency(fileSize int64) int {
-	if fileSize <= 0 {
-		return 3 // 默认值
+// DetermineFileAction 根据文件扩展名决定操作类型
+func (s *FileService) DetermineFileAction(filename string) utils.FileAction {
+	ext := strings.ToLower(filepath.Ext(filename))
+	config := utils.GetFilePreviewConfig()
+
+	// 检查是否支持在线预览
+	if config.PreviewableTypes[ext] {
+		return utils.ActionPreview
 	}
 
-	// 根据文件大小确定合适的并发数
-	switch {
-	case fileSize < 10*1024*1024: // 小于 10MB
-		return 2
-	case fileSize < 100*1024*1024: // 小于 100MB
-		return 4
-	case fileSize < 1024*1024*1024: // 小于 1GB
-		return 6
-	default: // 大于 1GB
-		return 8
+	// 检查是否是文本文件
+	if config.TextTypes[ext] {
+		return utils.ActionText
 	}
+
+	// 其他文件类型默认下载
+	return utils.ActionDownload
 }
 
 // DeleteByPath 根据路径删除文件/文件夹
@@ -766,6 +793,49 @@ func (s *FileService) BatchDeleteByPaths(ctx context.Context, uid int64, paths [
 			return fmt.Errorf("delete path %s error: %w", path, err)
 		}
 	}
-
 	return nil
+}
+
+// DownloadFile 下载文件，返回文件流
+func (s *FileService) DownloadFile(ctx context.Context, fileId int64, uid int64) (*DownloadFileInfo, error) {
+	// 获取文件信息
+	file, err := s.dao.GetFileById(ctx, fileId, uid)
+	if err != nil {
+		return nil, fmt.Errorf("file not found: %w", err)
+	}
+
+	// 检查是否为目录
+	if file.IsDir {
+		return nil, fmt.Errorf("cannot download directory")
+	}
+
+	// 从URL中提取对象键
+	objectKey := s.storageService.ExtractObjectKey(file.URL)
+	if objectKey == "" {
+		return nil, fmt.Errorf("invalid file URL")
+	}
+
+	// 获取文件对象
+	object, err := s.storageService.GetObject(ctx, objectKey)
+	if err != nil {
+		return nil, fmt.Errorf("get file object error: %w", err)
+	}
+
+	return &DownloadFileInfo{
+		Object:   object,
+		FileName: file.Name,
+		Size:     file.Size,
+	}, nil
+}
+
+// GetObjectKeyFromURL 从URL中提取对象键
+func (s *FileService) GetObjectKeyFromURL(fileURL string) string {
+	return s.storageService.ExtractObjectKey(fileURL)
+}
+
+// DownloadFileInfo 下载文件信息
+type DownloadFileInfo struct {
+	Object   *minio.Object // MinIO object
+	FileName string
+	Size     int64
 }

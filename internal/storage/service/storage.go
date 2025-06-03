@@ -172,10 +172,48 @@ func (s *StorageService) ExtractObjectKey(fileURL string) string {
 	}
 
 	// 提取路径，去掉开头的"/"
-	objectKey := parsedURL.Path
-	if len(objectKey) > 0 && objectKey[0] == '/' {
-		objectKey = objectKey[1:]
+	path := parsedURL.Path
+	if len(path) > 0 && path[0] == '/' {
+		path = path[1:]
 	}
 
-	return objectKey
+	// MinIO URL格式通常是：/[bucket]/[object-key]
+	// 我们需要去掉bucket部分，只保留object-key
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) < 2 {
+		return path // 如果格式不符合预期，返回整个路径
+	}
+
+	// 跳过bucket部分，返回剩余的object key
+	bucket := parts[0]
+	if bucket == consts.FileBucket || bucket == consts.UserBucket {
+		return parts[1]
+	}
+
+	// 如果不是预期的bucket，返回整个路径
+	return path
+}
+
+// GetObject 获取对象内容，用于文件下载
+func (s *StorageService) GetObject(ctx context.Context, objectKey string) (*minio.Object, error) {
+	bucket := consts.FileBucket
+
+	object, err := s.client.GetObject(ctx, bucket, objectKey, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get object %s error: %w", objectKey, err)
+	}
+
+	return object, nil
+}
+
+// FGetObject 下载对象到本地文件，用于临时文件下载
+func (s *StorageService) FGetObject(ctx context.Context, objectKey, filePath string) error {
+	bucket := consts.FileBucket
+
+	err := s.client.FGetObject(ctx, bucket, objectKey, filePath, minio.GetObjectOptions{})
+	if err != nil {
+		return fmt.Errorf("download object %s to %s error: %w", objectKey, filePath, err)
+	}
+
+	return nil
 }

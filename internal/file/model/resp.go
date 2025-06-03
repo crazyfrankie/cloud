@@ -12,6 +12,14 @@ type FileResp struct {
 	Ctime  int64  `json:"ctime"`  // 创建时间
 	Utime  int64  `json:"utime"`  // 更新时间
 	Status int    `json:"status"` // 状态
+
+	// 新增字段：文件操作信息
+	Action       string `json:"action,omitempty"`       // 操作类型：preview/download/text
+	PreviewURL   string `json:"previewUrl,omitempty"`   // 预览URL
+	DownloadURL  string `json:"downloadUrl,omitempty"`  // 下载URL
+	Previewable  bool   `json:"previewable,omitempty"`  // 是否可预览
+	HasThumbnail bool   `json:"hasThumbnail,omitempty"` // 是否有缩略图
+	ContentType  string `json:"contentType,omitempty"`  // MIME类型
 }
 
 // PreUploadCheckResp 预上传检查响应
@@ -66,8 +74,8 @@ type ChunkUploadUrl struct {
 	PresignedUrl string `json:"presignedUrl"`
 }
 
-// OptimizedInitUploadResp 优化的分块上传初始化响应
-type OptimizedInitUploadResp struct {
+// InitUploadResp 分块上传初始化响应
+type InitUploadResp struct {
 	UploadId               string           `json:"uploadId"`
 	ChunkUrls              []ChunkUploadUrl `json:"chunkUrls"`
 	ExpiresIn              int64            `json:"expiresIn"`

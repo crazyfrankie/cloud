@@ -41,9 +41,10 @@ func InitEngine() *gin.Engine {
 	userHandler := module.Handler
 	authHandler := authModule.Handler
 	storageModule := storage.InitStorageModule(client)
+	storageHandler := storageModule.Handler
 	fileModule := file.InitFileModule(db, storageModule)
 	fileHandler := fileModule.Handler
-	engine := InitWeb(v, userHandler, authHandler, fileHandler)
+	engine := InitWeb(v, userHandler, authHandler, storageHandler, fileHandler)
 	return engine
 }
 
@@ -92,13 +93,15 @@ func InitSnowflake() *snowflake.Node {
 	return node
 }
 
-func InitWeb(mws []gin.HandlerFunc, user2 *user.Handler, auth2 *auth.Handler, file2 *file.Handler) *gin.Engine {
+func InitWeb(mws []gin.HandlerFunc, user2 *user.Handler, auth2 *auth.Handler, storage2 *storage.Handler, file2 *file.Handler) *gin.Engine {
 	srv := gin.Default()
 
 	srv.Use(mws...)
 	user2.
 		RegisterRoute(srv)
 	auth2.
+		RegisterRoute(srv)
+	storage2.
 		RegisterRoute(srv)
 	file2.
 		RegisterRoute(srv)

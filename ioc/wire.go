@@ -75,13 +75,15 @@ func InitSnowflake() *snowflake.Node {
 	return node
 }
 
-func InitWeb(mws []gin.HandlerFunc, user *user.Handler, auth *auth.Handler, file *file.Handler) *gin.Engine {
+func InitWeb(mws []gin.HandlerFunc, user *user.Handler, auth *auth.Handler,
+	storage *storage.Handler, file *file.Handler) *gin.Engine {
 	srv := gin.Default()
 
 	srv.Use(mws...)
 
 	user.RegisterRoute(srv)
 	auth.RegisterRoute(srv)
+	storage.RegisterRoute(srv)
 	file.RegisterRoute(srv)
 
 	return srv
@@ -128,6 +130,7 @@ func InitEngine() *gin.Engine {
 		wire.FieldsOf(new(*user.Module), "Handler"),
 		wire.FieldsOf(new(*auth.Module), "Handler"),
 		wire.FieldsOf(new(*auth.Module), "Token"),
+		wire.FieldsOf(new(*storage.Module), "Handler"),
 		wire.FieldsOf(new(*file.Module), "Handler"),
 	)
 	return new(gin.Engine)

@@ -1,13 +1,14 @@
 package handler
 
 import (
-	"github.com/crazyfrankie/cloud/pkg/response"
-	"github.com/crazyfrankie/gem/gerrors"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
 
+	"github.com/crazyfrankie/gem/gerrors"
+	"github.com/gin-gonic/gin"
+
 	"github.com/crazyfrankie/cloud/internal/storage/service"
+	"github.com/crazyfrankie/cloud/pkg/response"
 )
 
 type StorageHandler struct {
@@ -31,7 +32,7 @@ func (h *StorageHandler) Presign() gin.HandlerFunc {
 		filesize := c.PostForm("filesize")
 		size, _ := strconv.ParseInt(filesize, 10, 64)
 		filehash := c.PostForm("filehash")
-		
+
 		typ := c.Param("type")
 
 		uid := c.MustGet("uid").(int64)

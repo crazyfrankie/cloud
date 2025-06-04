@@ -4,18 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/crazyfrankie/cloud/pkg/utils"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/crazyfrankie/cloud/pkg/utils"
 
 	"github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/internal/file/model"
 	storagem "github.com/crazyfrankie/cloud/internal/storage/model"
 	"github.com/crazyfrankie/cloud/internal/storage/service"
-	"github.com/minio/minio-go/v7"
 )
 
 type FileService struct {
@@ -392,10 +389,9 @@ func (s *FileService) InitUpload(ctx context.Context, uid int64, req model.InitU
 	// 为每个分块生成预签名URL
 	chunkUrls := make([]model.ChunkUploadUrl, totalChunks)
 	for i := 0; i < totalChunks; i++ {
-		// 使用统一的分块键格式：chunks/{uploadId}/{partNumber}
-		// partNumber 从1开始，与前端保持一致
+		// 使用统一的分块键格式：{uid}/chunks/{uploadId}/{partNumber}
 		partNumber := i + 1
-		chunkKey := fmt.Sprintf("chunks/%s/%d", uploadId, partNumber)
+		chunkKey := fmt.Sprintf("%d/chunks/%s/%d", uid, uploadId, partNumber)
 		presignedUrl, err := s.storageService.PresignForChunk(ctx, chunkKey)
 		if err != nil {
 			return nil, fmt.Errorf("generate chunk presigned URL error: %w", err)
@@ -407,6 +403,9 @@ func (s *FileService) InitUpload(ctx context.Context, uid int64, req model.InitU
 		}
 	}
 
+	// 检查是否有已上传的分块（断点续传）
+	existingParts := s.GetUploadStatus(ctx, uid, uploadId)
+
 	return &model.InitUploadResp{
 		FileExists:             false,
 		UploadId:               uploadId,
@@ -415,12 +414,13 @@ func (s *FileService) InitUpload(ctx context.Context, uid int64, req model.InitU
 		RecommendedConcurrency: concurrency,
 		ChunkUrls:              chunkUrls,
 		UploadMethod:           "direct-to-storage",
-		ExpiresIn:              3600, // 1 hour
+		ExpiresIn:              3600,          // 1 hour
+		ExistingParts:          existingParts, // 包含已上传的分块信息
 	}, nil
 }
 
-// OptimizedCompleteUpload 完成优化的分块上传
-func (s *FileService) OptimizedCompleteUpload(ctx context.Context, uid int64, uploadId string, req model.CompleteUploadReq) (*model.FileResp, error) {
+// CompleteUpload 完成分块上传
+func (s *FileService) CompleteUpload(ctx context.Context, uid int64, uploadId string, req model.CompleteUploadReq) (*model.FileResp, error) {
 	// 验证所有分块
 	if len(req.UploadedChunks) == 0 {
 		return nil, errors.New("no uploaded chunks provided")
@@ -453,25 +453,16 @@ func (s *FileService) OptimizedCompleteUpload(ctx context.Context, uid int64, up
 	chunkKeys := make([]string, len(req.UploadedChunks))
 	chunkInfos := make([]storagem.ChunkInfo, len(req.UploadedChunks))
 	for i, chunk := range req.UploadedChunks {
-		// chunk.PartNumber 是从前端传来的分块编号（从1开始）
-		chunkKeys[i] = fmt.Sprintf("chunks/%s/%d", uploadId, chunk.PartNumber)
+		// chunk.PartNumber 从 1 开始
+		chunkKeys[i] = fmt.Sprintf("%d/chunks/%s/%d", uid, uploadId, chunk.PartNumber)
 		chunkInfos[i] = storagem.ChunkInfo{
 			Key:  chunkKeys[i],
 			ETag: chunk.ETag,
 		}
 	}
 
-	// 生成最终的对象键（保留文件扩展名）
-	fileExt := filepath.Ext(req.FileName)
-	var finalObjectKey string
-	if req.FileHash != "" {
-		finalObjectKey = fmt.Sprintf("files/%d/%s%s", uid, req.FileHash, fileExt)
-	} else {
-		// 如果没有哈希值，使用时间戳作为标识，但保留扩展名
-		finalObjectKey = fmt.Sprintf("files/%d/%d%s", uid, time.Now().UnixNano(), fileExt)
-	}
-
-	// 合并所有分块为最终文件（使用ETag验证）
+	finalObjectKey := fmt.Sprintf("%d/%s", uid, req.FileName)
+	// 使用ETag验证, 合并所有分块为最终文件
 	err = s.storageService.ComposeObjectsWithETag(ctx, chunkInfos, finalObjectKey)
 	if err != nil {
 		return nil, fmt.Errorf("compose objects with etag validation error: %w", err)
@@ -485,7 +476,6 @@ func (s *FileService) OptimizedCompleteUpload(ctx context.Context, uid int64, up
 		Name:           req.FileName,
 		Path:           filePath,
 		IsDir:          false,
-		Size:           0, // 需要从存储服务获取实际大小
 		URL:            fileUrl,
 		Hash:           req.FileHash,
 		UID:            uid,
@@ -557,6 +547,21 @@ func (s *FileService) OptimizedCompleteUpload(ctx context.Context, uid int64, up
 		Utime:  file.Utime,
 		Status: file.Status,
 	}, nil
+}
+
+// GetUploadStatus 获取已上传的分块状态
+func (s *FileService) GetUploadStatus(ctx context.Context, uid int64, uploadId string) []*model.PartStatusResp {
+	objectInfo := s.storageService.GetUploadChunkObjects(ctx, uid, uploadId)
+
+	res := make([]*model.PartStatusResp, 0, len(objectInfo))
+	for _, o := range objectInfo {
+		res = append(res, &model.PartStatusResp{
+			ObjectKey: o.Key,
+			ETag:      o.ETag,
+		})
+	}
+
+	return res
 }
 
 // GetFileById 根据ID获取文件
@@ -797,7 +802,7 @@ func (s *FileService) BatchDeleteByPaths(ctx context.Context, uid int64, paths [
 }
 
 // DownloadFile 下载文件，返回文件流
-func (s *FileService) DownloadFile(ctx context.Context, fileId int64, uid int64) (*DownloadFileInfo, error) {
+func (s *FileService) DownloadFile(ctx context.Context, fileId int64, uid int64) (*model.DownloadFileInfo, error) {
 	// 获取文件信息
 	file, err := s.dao.GetFileById(ctx, fileId, uid)
 	if err != nil {
@@ -821,7 +826,7 @@ func (s *FileService) DownloadFile(ctx context.Context, fileId int64, uid int64)
 		return nil, fmt.Errorf("get file object error: %w", err)
 	}
 
-	return &DownloadFileInfo{
+	return &model.DownloadFileInfo{
 		Object:   object,
 		FileName: file.Name,
 		Size:     file.Size,
@@ -831,11 +836,4 @@ func (s *FileService) DownloadFile(ctx context.Context, fileId int64, uid int64)
 // GetObjectKeyFromURL 从URL中提取对象键
 func (s *FileService) GetObjectKeyFromURL(fileURL string) string {
 	return s.storageService.ExtractObjectKey(fileURL)
-}
-
-// DownloadFileInfo 下载文件信息
-type DownloadFileInfo struct {
-	Object   *minio.Object // MinIO object
-	FileName string
-	Size     int64
 }

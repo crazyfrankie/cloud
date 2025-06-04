@@ -7,10 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/crazyfrankie/cloud/internal/storage/model"
-
 	"github.com/minio/minio-go/v7"
 
+	"github.com/crazyfrankie/cloud/internal/storage/model"
 	"github.com/crazyfrankie/cloud/pkg/consts"
 )
 
@@ -30,14 +29,14 @@ func (s *StorageService) PresignWithPolicy(ctx context.Context, uid int64, filen
 	if typ == "file" {
 		// 使用哈希值作为文件名前缀，避免重复上传
 		if fileHash != "" && len(fileHash) >= 8 {
-			objectKey = fmt.Sprintf("files/%d/%s_%s", uid, fileHash[:8], filename)
+			objectKey = fmt.Sprintf("%d/chunks/%s_%s", uid, fileHash[:8], filename)
 		} else {
 			// 如果没有哈希值或哈希值太短，使用时间戳
-			objectKey = fmt.Sprintf("files/%d/%d_%s", uid, time.Now().Unix(), filename)
+			objectKey = fmt.Sprintf("%d/chunks/%d_%s", uid, time.Now().Unix(), filename)
 		}
 		bucket = consts.FileBucket
 	} else {
-		objectKey = fmt.Sprintf("avatar/%d/%s", uid, filename)
+		objectKey = fmt.Sprintf("%d/%s", uid, filename)
 		bucket = consts.UserBucket
 	}
 
@@ -96,34 +95,6 @@ func (s *StorageService) GetObjectInfo(ctx context.Context, objectKey string) (m
 	return objInfo, nil
 }
 
-// ComposeObjects 合并多个对象为一个对象（真正的分块合并）
-func (s *StorageService) ComposeObjects(ctx context.Context, chunkKeys []string, finalObjectKey string) error {
-	bucket := consts.FileBucket
-
-	// 创建源对象列表
-	sources := make([]minio.CopySrcOptions, len(chunkKeys))
-	for i, chunkKey := range chunkKeys {
-		sources[i] = minio.CopySrcOptions{
-			Bucket: bucket,
-			Object: chunkKey,
-		}
-	}
-
-	// 目标对象配置
-	dest := minio.CopyDestOptions{
-		Bucket: bucket,
-		Object: finalObjectKey,
-	}
-
-	// 合并对象
-	_, err := s.client.ComposeObject(ctx, dest, sources...)
-	if err != nil {
-		return fmt.Errorf("compose objects error: %w", err)
-	}
-
-	return nil
-}
-
 // ComposeObjectsWithETag 使用ETag验证合并多个对象为一个对象
 func (s *StorageService) ComposeObjectsWithETag(ctx context.Context, chunks []model.ChunkInfo, finalObjectKey string) error {
 	bucket := consts.FileBucket
@@ -157,6 +128,23 @@ func (s *StorageService) ComposeObjectsWithETag(ctx context.Context, chunks []mo
 	}
 
 	return nil
+}
+
+// GetUploadChunkObjects 获取断点续传所需的已上传的分块状态
+func (s *StorageService) GetUploadChunkObjects(ctx context.Context, uid int64, uploadId string) []minio.ObjectInfo {
+	bucket := consts.FileBucket
+
+	res := make([]minio.ObjectInfo, 0, 100)
+
+	info := s.client.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    fmt.Sprintf("%d/chunks/%s", uid, uploadId),
+		Recursive: true,
+	})
+	for i := range info {
+		res = append(res, i)
+	}
+
+	return res
 }
 
 // ExtractObjectKey 从URL中提取对象键

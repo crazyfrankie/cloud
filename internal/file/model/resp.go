@@ -1,5 +1,7 @@
 package model
 
+import "github.com/minio/minio-go/v7"
+
 // FileResp 统一的文件/文件夹响应
 type FileResp struct {
 	ID     int64  `json:"id"`     // 文件/文件夹ID
@@ -76,16 +78,29 @@ type ChunkUploadUrl struct {
 
 // InitUploadResp 分块上传初始化响应
 type InitUploadResp struct {
-	UploadId               string           `json:"uploadId"`
-	ChunkUrls              []ChunkUploadUrl `json:"chunkUrls"`
-	ExpiresIn              int64            `json:"expiresIn"`
-	RecommendedConcurrency int              `json:"recommendedConcurrency"`
-	OptimalChunkSize       int64            `json:"optimalChunkSize"`
-	TotalChunks            int              `json:"totalChunks"`
-	UploadMethod           string           `json:"uploadMethod"`              // "direct-to-storage" 或 "fast"
-	FileExists             bool             `json:"fileExists"`                // 文件是否已存在（秒传）
-	FileID                 int64            `json:"fileId,omitempty"`          // 如果文件已存在，返回文件ID
-	FileURL                string           `json:"fileUrl,omitempty"`         // 如果文件已存在，返回文件URL
-	Message                string           `json:"message,omitempty"`         // 附加信息
-	ServerSignature        string           `json:"serverSignature,omitempty"` // 服务器签名，用于验证
+	UploadId               string            `json:"uploadId"`
+	ChunkUrls              []ChunkUploadUrl  `json:"chunkUrls"`
+	ExpiresIn              int64             `json:"expiresIn"`
+	RecommendedConcurrency int               `json:"recommendedConcurrency"`
+	OptimalChunkSize       int64             `json:"optimalChunkSize"`
+	TotalChunks            int               `json:"totalChunks"`
+	UploadMethod           string            `json:"uploadMethod"`              // "direct-to-storage" 或 "fast"
+	FileExists             bool              `json:"fileExists"`                // 文件是否已存在（秒传）
+	FileID                 int64             `json:"fileId,omitempty"`          // 如果文件已存在，返回文件ID
+	FileURL                string            `json:"fileUrl,omitempty"`         // 如果文件已存在，返回文件URL
+	Message                string            `json:"message,omitempty"`         // 附加信息
+	ServerSignature        string            `json:"serverSignature,omitempty"` // 服务器签名，用于验证
+	ExistingParts          []*PartStatusResp `json:"existingParts,omitempty"`   // 已上传的分块信息（断点续传）
+}
+
+type PartStatusResp struct {
+	ObjectKey string `json:"objectKey"`
+	ETag      string `json:"etag"`
+}
+
+// DownloadFileInfo 下载文件信息
+type DownloadFileInfo struct {
+	Object   *minio.Object // MinIO object
+	FileName string
+	Size     int64
 }

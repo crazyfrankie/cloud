@@ -37,7 +37,7 @@ func (h *FileHandler) RegisterRoute(r *gin.Engine) {
 
 		fileGroup.POST("/precreate", h.PreCreateCheck())       // 小文件上传：预检查和生成预签名URL
 		fileGroup.POST("/create", h.ConfirmCreate())           // 小文件上传：确认上传完成并创建文件记录
-		fileGroup.POST("/upload", h.InitUpload())              // 大文件上传：初始化分块上传
+		fileGroup.POST("/preupload", h.InitUpload())           // 大文件上传：初始化分块上传
 		fileGroup.POST("/upload/complete", h.CompleteUpload()) // 大文件上传：合并分块并创建文件记录
 
 		fileGroup.GET("/stats", h.GetUserFileStats())           // 获取用户文件统计
@@ -391,10 +391,10 @@ func (h *FileHandler) ConfirmCreate() gin.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Param req body model.InitUploadReq true "初始化请求"
-// @Success 200 {object} response.Response{data=model.OptimizedInitUploadResp} "操作成功"
+// @Success 200 {object} response.Response{data=model.InitUploadResp} "操作成功"
 // @Failure 400 {object} response.Response "参数错误(code=20001)"
 // @Failure 500 {object} response.Response "系统错误(code=50000)"
-// @Router /files/optimized-upload [post]
+// @Router /files/upload [post]
 func (h *FileHandler) InitUpload() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req model.InitUploadReq
@@ -421,12 +421,12 @@ func (h *FileHandler) InitUpload() gin.HandlerFunc {
 // @Tags 文件上传
 // @Accept json
 // @Produce json
-// @Param uploadId path string true "上传ID"
+// @Query uploadId path string true "上传ID"
 // @Param req body model.CompleteUploadReq true "完成请求"
 // @Success 200 {object} response.Response{data=model.FileResp} "操作成功"
 // @Failure 400 {object} response.Response "参数错误(code=20001)"
 // @Failure 500 {object} response.Response "系统错误(code=50000)"
-// @Router /files/optimized-upload/{uploadId}/complete [post]
+// @Router /files/upload/complete [post]
 func (h *FileHandler) CompleteUpload() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uploadId := c.Query("uploadId")
@@ -439,7 +439,7 @@ func (h *FileHandler) CompleteUpload() gin.HandlerFunc {
 
 		uid := c.MustGet("uid").(int64)
 
-		resp, err := h.file.OptimizedCompleteUpload(c.Request.Context(), uid, uploadId, req)
+		resp, err := h.file.CompleteUpload(c.Request.Context(), uid, uploadId, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return

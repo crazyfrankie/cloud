@@ -5,5 +5,6 @@ type UserResp struct {
 	NickName string `json:"nickname"`
 	Avatar   string `json:"avatar"`
 	Birthday string `json:"birthday"`
+	Ctime    int64  `json:"ctime"`
 	Utime    int64  `json:"utime"`
 }

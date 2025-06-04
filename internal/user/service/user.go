@@ -55,6 +55,7 @@ func (s *UserService) GetUserInfo(ctx context.Context, uid int64) (model.UserRes
 		NickName: user.Nickname,
 		Avatar:   user.Avatar,
 		Birthday: birthday,
+		Ctime:    user.Ctime,
 		Utime:    user.Utime,
 	}, nil
 }

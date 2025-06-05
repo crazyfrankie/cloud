@@ -33,15 +33,13 @@ func (h *AuthnHandler) Auth() gin.HandlerFunc {
 		}
 
 		access, err := h.token.GetAccessToken(c)
-		if err != nil {
-			response.Error(c, http.StatusUnauthorized, gerrors.NewBizError(40001, err.Error()))
-			return
-		}
-		if claims, err := h.token.ParseToken(access); err == nil {
-			c.Set("uid", claims.UID)
-			c.Set("uuid", claims.UUID)
-			c.Next()
-			return
+		if err == nil {
+			if claims, err := h.token.ParseToken(access); err == nil {
+				c.Set("uid", claims.UID)
+				c.Set("uuid", claims.UUID)
+				c.Next()
+				return
+			}
 		}
 
 		refresh, err := c.Cookie("cloud_refresh")

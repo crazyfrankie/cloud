@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
@@ -130,8 +131,12 @@ func (s *TokenService) GetAccessToken(c *gin.Context) (string, error) {
 	}
 
 	strs := strings.Split(tokenHeader, " ")
-	if strs[0] != "Bearer" {
+	if len(strs) != 2 || strs[0] != "Bearer" {
 		return "", errors.New("header is invalid")
+	}
+
+	if strs[1] == "" {
+		return "", errors.New("token is empty")
 	}
 
 	return strs[1], nil

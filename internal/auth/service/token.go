@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -117,6 +119,20 @@ func (s *TokenService) TryRefresh(refresh string, ua string) ([]string, error) {
 
 func (s *TokenService) CleanToken(ctx context.Context, uid int64, ua string) error {
 	return s.cmd.Del(ctx, tokenKey(uid, ua)).Err()
+}
+
+func (s *TokenService) GetAccessToken(c *gin.Context) (string, error) {
+	tokenHeader := c.GetHeader("Authorization")
+	if tokenHeader == "" {
+		return "", errors.New("no auth")
+	}
+
+	strs := strings.Split(tokenHeader, " ")
+	if strs[0] != "Bearer" {
+		return "", errors.New("header is invalid")
+	}
+
+	return strs[1], nil
 }
 
 func tokenKey(uid int64, ua string) string {

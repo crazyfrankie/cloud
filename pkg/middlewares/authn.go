@@ -32,7 +32,7 @@ func (h *AuthnHandler) Auth() gin.HandlerFunc {
 			return
 		}
 
-		access, err := c.Cookie("cloud_access")
+		access, err := h.token.GetAccessToken(c)
 		if err != nil {
 			response.Error(c, http.StatusUnauthorized, gerrors.NewBizError(40001, err.Error()))
 			return
@@ -53,7 +53,7 @@ func (h *AuthnHandler) Auth() gin.HandlerFunc {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
-		utils.SetCookies(c, tokens)
+		utils.SetTokens(c, tokens)
 
 		c.Next()
 	}

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/crazyfrankie/cloud/pkg/utils"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/crazyfrankie/cloud/pkg/utils"
 
 	"github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/internal/file/model"

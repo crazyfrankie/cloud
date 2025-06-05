@@ -54,7 +54,7 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
-		utils.SetCookies(c, tokens)
+		utils.SetTokens(c, tokens)
 
 		response.Success(c)
 	}
@@ -80,7 +80,6 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 		}
 
 		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie("cloud_access", "", -1, "/", "", false, false)
 		c.SetCookie("cloud_refresh", "", -1, "/", "", false, false)
 
 		response.Success(c)

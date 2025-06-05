@@ -7,7 +7,7 @@ type File struct {
 	Path           string `gorm:"not null;index"`              // 完整路径，如 "/", "/folder1", "/folder1/file.txt"
 	IsDir          bool   `gorm:"not null;default:false"`      // 是否为文件夹
 	Size           int64  `gorm:"not null;default:0"`          // 文件大小，文件夹为0
-	URL            string `gorm:"default:'';type:text"`        // 文件存储URL，文件夹为空
+	URL            string `gorm:"type:text"`                   // 文件存储URL，文件夹为空
 	Hash           string `gorm:"type:varchar(128);index"`     // 文件哈希值，文件夹为空
 	UID            int64  `gorm:"not null;index:idx_uid_path"` // 用户ID
 	Version        int64  `gorm:"not null;default:1"`          // 文件版本

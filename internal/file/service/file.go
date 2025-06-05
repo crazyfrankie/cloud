@@ -51,14 +51,12 @@ func (s *FileService) PreUploadCheck(ctx context.Context, req model.PreUploadChe
 		resp.FileID = existingFile.ID
 		resp.FilePath = existingFile.Path
 	} else {
-		// 文件不存在，生成预签名URL和对象键
-		presignedUrl, objectKey, err := s.storageService.PresignWithPolicy(ctx, uid, req.Name, req.Size, req.Hash, "file")
+		presignedUrl, err := s.storageService.Presign(ctx, uid, req.Name, req.Size, req.Hash, "file")
 		if err != nil {
 			return nil, fmt.Errorf("generate presigned URL error: %w", err)
 		}
 
 		resp.PresignedUrl = presignedUrl
-		resp.ObjectKey = objectKey
 	}
 
 	return resp, nil

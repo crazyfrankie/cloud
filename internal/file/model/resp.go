@@ -30,7 +30,6 @@ type PreUploadCheckResp struct {
 	FileID       int64  `json:"fileId"`       // 如果存在，返回文件ID
 	FilePath     string `json:"filePath"`     // 如果存在，返回文件路径
 	PresignedUrl string `json:"presignedUrl"` // 如果不存在，返回预签名URL
-	ObjectKey    string `json:"objectKey"`    // 对象键
 }
 
 // ListContentsResp 目录内容响应

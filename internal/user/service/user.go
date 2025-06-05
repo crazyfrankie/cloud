@@ -29,10 +29,10 @@ func (s *UserService) CreateUser(ctx context.Context, name string, password stri
 		return err
 	}
 
-	id := s.node.GenerateCode()
+	uuid := s.node.GenerateCode()
 
 	return s.dao.Insert(ctx, &dao.User{
-		ID:       id,
+		UUID:     uuid,
 		Nickname: name,
 		Avatar:   consts.DefaultAvatar,
 		Password: hash,
@@ -60,13 +60,13 @@ func (s *UserService) GetUserInfo(ctx context.Context, uid int64) (model.UserRes
 	}, nil
 }
 
-func (s *UserService) GetUserInfoByName(ctx context.Context, name string) (int64, []byte, error) {
+func (s *UserService) GetUserInfoByName(ctx context.Context, name string) (dao.User, error) {
 	user, err := s.dao.FindByName(ctx, name)
 	if err != nil {
-		return -1, nil, err
+		return dao.User{}, err
 	}
 
-	return user.ID, user.Password, nil
+	return user, nil
 }
 
 func (s *UserService) UpdateUserInfo(ctx context.Context, id int64, nickname string, birthday string) (model.UserResp, error) {

@@ -37,7 +37,7 @@ func (h *StorageHandler) Presign() gin.HandlerFunc {
 
 		uid := c.MustGet("uid").(int64)
 
-		url, obkey, err := h.svc.PresignWithPolicy(c.Request.Context(), uid, filename, size, filehash, typ)
+		url, err := h.svc.Presign(c.Request.Context(), uid, filename, size, filehash, typ)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(30000, err.Error()))
 			return
@@ -45,7 +45,6 @@ func (h *StorageHandler) Presign() gin.HandlerFunc {
 
 		response.SuccessWithData(c, map[string]any{
 			"presignUrl": url,
-			"objectKey":  obkey,
 		})
 	}
 }

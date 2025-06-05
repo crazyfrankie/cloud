@@ -39,6 +39,7 @@ func (h *AuthnHandler) Auth() gin.HandlerFunc {
 		}
 		if claims, err := h.token.ParseToken(access); err == nil {
 			c.Set("uid", claims.UID)
+			c.Set("uuid", claims.UUID)
 			c.Next()
 			return
 		}

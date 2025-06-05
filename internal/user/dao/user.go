@@ -26,7 +26,7 @@ func (d *UserDao) Insert(ctx context.Context, u *User) error {
 
 func (d *UserDao) FindByName(ctx context.Context, name string) (User, error) {
 	var res User
-	err := d.db.Model(&User{}).WithContext(ctx).Where("nickname = ?", name).Find(&res).Error
+	err := d.db.Model(&User{}).WithContext(ctx).Where("nickname = ?", name).Select("id", "uuid", "password").Find(&res).Error
 
 	return res, err
 }

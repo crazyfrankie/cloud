@@ -23,7 +23,8 @@ type TokenService struct {
 }
 
 type Claims struct {
-	UID int64 `json:"uid"`
+	UID  int64 `json:"uid"`
+	UUID int64 `json:"uuid"`
 	jwt.RegisteredClaims
 }
 
@@ -31,21 +32,21 @@ func NewTokenService(cmd redis.Cmdable) *TokenService {
 	return &TokenService{cmd: cmd, signAlgo: conf.GetConf().JWT.SignAlgo, secretKey: []byte(conf.GetConf().JWT.SecretKey)}
 }
 
-func (s *TokenService) GenerateToken(uid int64, ua string) ([]string, error) {
+func (s *TokenService) GenerateToken(uid, uuid int64, ua string) ([]string, error) {
 	res := make([]string, 2)
-	access, err := s.newToken(uid, time.Hour)
+	access, err := s.newToken(uid, uuid, time.Hour)
 	if err != nil {
 		return res, err
 	}
 	res[0] = access
-	refresh, err := s.newToken(uid, time.Hour*24*30)
+	refresh, err := s.newToken(uid, uuid, time.Hour*24*30)
 	if err != nil {
 		return res, err
 	}
 	res[1] = refresh
 
 	// set refresh in redis
-	key := tokenKey(uid, ua)
+	key := tokenKey(uuid, ua)
 
 	err = s.cmd.Set(context.Background(), key, refresh, time.Hour*24*30).Err()
 	if err != nil {
@@ -55,10 +56,11 @@ func (s *TokenService) GenerateToken(uid int64, ua string) ([]string, error) {
 	return res, nil
 }
 
-func (s *TokenService) newToken(uid int64, duration time.Duration) (string, error) {
+func (s *TokenService) newToken(uid, uuid int64, duration time.Duration) (string, error) {
 	now := time.Now()
 	claims := &Claims{
-		UID: uid,
+		UID:  uid,
+		UUID: uuid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
@@ -92,12 +94,12 @@ func (s *TokenService) TryRefresh(refresh string, ua string) ([]string, error) {
 		return nil, fmt.Errorf("invalid refresh token")
 	}
 
-	res, err := s.cmd.Get(context.Background(), tokenKey(refreshClaims.UID, ua)).Result()
+	res, err := s.cmd.Get(context.Background(), tokenKey(refreshClaims.UUID, ua)).Result()
 	if err != nil || res != refresh {
 		return nil, errors.New("token invalid or revoked")
 	}
 
-	access, err := s.newToken(refreshClaims.UID, time.Hour)
+	access, err := s.newToken(refreshClaims.UID, refreshClaims.UUID, time.Hour)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +109,8 @@ func (s *TokenService) TryRefresh(refresh string, ua string) ([]string, error) {
 	expire, _ := refreshClaims.GetExpirationTime()
 	if expire.Sub(now) < expire.Sub(issat.Time)/3 {
 		// try refresh
-		refresh, err = s.newToken(refreshClaims.UID, time.Hour*24*30)
-		err = s.cmd.Set(context.Background(), tokenKey(refreshClaims.UID, ua), refresh, time.Hour*24*30).Err()
+		refresh, err = s.newToken(refreshClaims.UID, refreshClaims.UUID, time.Hour*24*30)
+		err = s.cmd.Set(context.Background(), tokenKey(refreshClaims.UUID, ua), refresh, time.Hour*24*30).Err()
 		if err != nil {
 			return nil, err
 		}
@@ -117,8 +119,8 @@ func (s *TokenService) TryRefresh(refresh string, ua string) ([]string, error) {
 	return []string{access, refresh}, nil
 }
 
-func (s *TokenService) CleanToken(ctx context.Context, uid int64, ua string) error {
-	return s.cmd.Del(ctx, tokenKey(uid, ua)).Err()
+func (s *TokenService) CleanToken(ctx context.Context, uuid int64, ua string) error {
+	return s.cmd.Del(ctx, tokenKey(uuid, ua)).Err()
 }
 
 func (s *TokenService) GetAccessToken(c *gin.Context) (string, error) {
@@ -135,9 +137,9 @@ func (s *TokenService) GetAccessToken(c *gin.Context) (string, error) {
 	return strs[1], nil
 }
 
-func tokenKey(uid int64, ua string) string {
+func tokenKey(uuid int64, ua string) string {
 	hash := hashUA(ua)
-	return fmt.Sprintf("refresh_token:%d:%s", uid, hash)
+	return fmt.Sprintf("refresh_token:%d:%s", uuid, hash)
 }
 
 func hashUA(ua string) string {

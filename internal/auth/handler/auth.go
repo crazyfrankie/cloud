@@ -72,8 +72,8 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.MustGet("uid")
-		err := h.auth.Logout(c.Request.Context(), id.(int64), c.Request.UserAgent())
+		uuid := c.MustGet("uuid")
+		err := h.auth.Logout(c.Request.Context(), uuid.(int64), c.Request.UserAgent())
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return

@@ -69,9 +69,9 @@ func (h *FileHandler) ListContents() gin.HandlerFunc {
 			path = "/"
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		contents, err := h.file.ListPathContents(c.Request.Context(), uid, path)
+		contents, err := h.file.ListPathContents(c.Request.Context(), uuid, path)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -100,9 +100,9 @@ func (h *FileHandler) CreateItem() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		fileResp, err := h.file.CreateFile(c.Request.Context(), req, uid)
+		fileResp, err := h.file.CreateFile(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -141,9 +141,9 @@ func (h *FileHandler) GetFileInfo() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -172,9 +172,9 @@ func (h *FileHandler) DeleteByPath() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.DeleteByPath(c.Request.Context(), uid, path)
+		err := h.file.DeleteByPath(c.Request.Context(), uuid, path)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -203,9 +203,9 @@ func (h *FileHandler) BatchDelete() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.BatchDeleteByPaths(c.Request.Context(), uid, req.Paths)
+		err := h.file.BatchDeleteByPaths(c.Request.Context(), uuid, req.Paths)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -242,9 +242,9 @@ func (h *FileHandler) UpdateFileInfo() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		fileInfo, err := h.file.UpdateFile(c.Request.Context(), fileId, uid, req)
+		fileInfo, err := h.file.UpdateFile(c.Request.Context(), fileId, uuid, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -276,9 +276,9 @@ func (h *FileHandler) MoveItem() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.MovePath(c.Request.Context(), uid, req.SourcePath, req.TargetPath)
+		err := h.file.MovePath(c.Request.Context(), uuid, req.SourcePath, req.TargetPath)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -310,9 +310,9 @@ func (h *FileHandler) CopyItem() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.CopyPath(c.Request.Context(), uid, req.SourcePath, req.TargetPath)
+		err := h.file.CopyPath(c.Request.Context(), uuid, req.SourcePath, req.TargetPath)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -341,9 +341,9 @@ func (h *FileHandler) PreCreateCheck() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		resp, err := h.file.PreUploadCheck(c.Request.Context(), req, uid)
+		resp, err := h.file.PreUploadCheck(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -372,9 +372,9 @@ func (h *FileHandler) ConfirmCreate() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		fileResp, err := h.file.ConfirmUpload(c.Request.Context(), req, uid)
+		fileResp, err := h.file.ConfirmUpload(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -403,9 +403,9 @@ func (h *FileHandler) InitUpload() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		resp, err := h.file.InitUpload(c.Request.Context(), uid, req)
+		resp, err := h.file.InitUpload(c.Request.Context(), uuid, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -437,9 +437,9 @@ func (h *FileHandler) CompleteUpload() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		resp, err := h.file.CompleteUpload(c.Request.Context(), uid, uploadId, req)
+		resp, err := h.file.CompleteUpload(c.Request.Context(), uuid, uploadId, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -460,9 +460,9 @@ func (h *FileHandler) CompleteUpload() gin.HandlerFunc {
 // @Router /files/stats [get]
 func (h *FileHandler) GetUserFileStats() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
-		stats, err := h.file.GetUserFileStats(c.Request.Context(), uid)
+		stats, err := h.file.GetUserFileStats(c.Request.Context(), uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -492,16 +492,16 @@ func (h *FileHandler) GetFileVersions() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
 		// 获取文件信息以获取哈希值
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 
-		versions, err := h.file.GetFileVersionsByHash(c.Request.Context(), uid, fileInfo.Hash)
+		versions, err := h.file.GetFileVersionsByHash(c.Request.Context(), uuid, fileInfo.Hash)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -532,10 +532,10 @@ func (h *FileHandler) PreviewFile() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
 		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
 			return
@@ -581,10 +581,10 @@ func (h *FileHandler) DownloadFile() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
 		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
 			return
@@ -602,7 +602,7 @@ func (h *FileHandler) DownloadFile() gin.HandlerFunc {
 		}
 
 		// 获取文件下载信息
-		downloadInfo, err := h.file.DownloadFile(c.Request.Context(), fileId, uid)
+		downloadInfo, err := h.file.DownloadFile(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -636,10 +636,10 @@ func (h *FileHandler) PreviewTextFile() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
 		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
 			return
@@ -679,10 +679,10 @@ func (h *FileHandler) GetThumbnail() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.MustGet("uid").(int64)
+		uuid := c.MustGet("uuid").(int64)
 
 		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uid)
+		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
 			return

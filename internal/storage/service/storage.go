@@ -21,41 +21,32 @@ func NewStorageService(cli *minio.Client) *StorageService {
 	return &StorageService{client: cli}
 }
 
-// PresignWithPolicy 生成带严格策略的预签名URL
-func (s *StorageService) PresignWithPolicy(ctx context.Context, uid int64, filename string, fileSize int64, fileHash string, typ string) (string, string, error) {
+// Presign 生成带严格策略的预签名URL
+func (s *StorageService) Presign(ctx context.Context, uid int64, filename string, fileSize int64, fileHash string, typ string) (string, error) {
 	var objectKey string
 	var bucket string
 
 	if typ == "file" {
-		// 使用哈希值作为文件名前缀，避免重复上传
-		if fileHash != "" && len(fileHash) >= 8 {
-			objectKey = fmt.Sprintf("%d/chunks/%s_%s", uid, fileHash[:8], filename)
-		} else {
-			// 如果没有哈希值或哈希值太短，使用时间戳
-			objectKey = fmt.Sprintf("%d/chunks/%d_%s", uid, time.Now().Unix(), filename)
-		}
+		objectKey = fmt.Sprintf("%d/%s_%s", uid, fileHash[:8], filename)
 		bucket = consts.FileBucket
 	} else {
 		objectKey = fmt.Sprintf("%d/%s", uid, filename)
 		bucket = consts.UserBucket
 	}
 
-	// 设置较短的过期时间（1小时）
 	expire := time.Hour * 1
 
-	// 创建预签名URL，添加文件大小限制
 	reqParams := make(url.Values)
 	if fileSize > 0 {
-		// 可以在这里添加更多的策略限制
 		reqParams.Set("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
 	}
 
 	preUrl, err := s.client.PresignedPutObject(ctx, bucket, objectKey, expire)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	return preUrl.String(), objectKey, nil
+	return preUrl.String(), nil
 }
 
 // PresignForChunk 为分块上传生成预签名URL，保持对象键不变

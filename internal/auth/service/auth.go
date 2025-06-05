@@ -23,21 +23,21 @@ func NewAuthService(user *service.UserService, token *TokenService) *AuthService
 
 func (s *AuthService) Login(ctx context.Context, req model.LoginReq, ua string) ([]string, error) {
 	var tokens []string
-	id, pwd, err := s.user.GetUserInfoByName(ctx, req.NickName)
+	user, err := s.user.GetUserInfoByName(ctx, req.NickName)
 	if err != nil {
 		return tokens, err
 	}
 
-	err = bcrypt.CompareHashAndPassword(pwd, []byte(req.Password))
+	err = bcrypt.CompareHashAndPassword(user.Password, []byte(req.Password))
 	if err != nil {
 		return tokens, err
 	}
 
-	tokens, err = s.token.GenerateToken(id, ua)
+	tokens, err = s.token.GenerateToken(user.ID, user.UUID, ua)
 
 	return tokens, err
 }
 
-func (s *AuthService) Logout(ctx context.Context, uid int64, ua string) error {
-	return s.token.CleanToken(ctx, uid, ua)
+func (s *AuthService) Logout(ctx context.Context, uuid int64, ua string) error {
+	return s.token.CleanToken(ctx, uuid, ua)
 }

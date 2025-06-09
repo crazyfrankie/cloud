@@ -11,16 +11,19 @@ import (
 	"github.com/crazyfrankie/cloud/internal/file/handler"
 	"github.com/crazyfrankie/cloud/internal/file/service"
 	"github.com/crazyfrankie/cloud/internal/storage"
+	"github.com/minio/minio-go/v7"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
 // Injectors from wire.go:
 
-func InitFileModule(db *gorm.DB, st *storage.Module) *Module {
+func InitFileModule(db *gorm.DB, st *storage.Module, rdb redis.Cmdable, minio2 *minio.Client) *Module {
 	fileDao := dao.NewFileDao(db)
 	storageService := st.Service
-	fileService := service.NewFileService(fileDao, storageService)
-	fileHandler := handler.NewFileHandler(fileService)
+	uploadService := service.NewUploadService(fileDao, storageService)
+	downloadService := service.NewDownloadService(fileDao, storageService, minio2)
+	fileHandler := handler.NewFileHandler(uploadService, downloadService)
 	module := &Module{
 		Handler: fileHandler,
 	}

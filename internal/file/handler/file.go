@@ -10,16 +10,19 @@ import (
 
 	"github.com/crazyfrankie/cloud/internal/file/model"
 	"github.com/crazyfrankie/cloud/internal/file/service"
+	"github.com/crazyfrankie/cloud/pkg/consts"
 	"github.com/crazyfrankie/cloud/pkg/response"
 )
 
 type FileHandler struct {
-	file *service.FileService
+	upload   *service.UploadService
+	download *service.DownloadService
 }
 
-func NewFileHandler(f *service.FileService) *FileHandler {
+func NewFileHandler(u *service.UploadService, d *service.DownloadService) *FileHandler {
 	return &FileHandler{
-		file: f,
+		upload:   u,
+		download: d,
 	}
 }
 
@@ -42,12 +45,13 @@ func (h *FileHandler) RegisterRoute(r *gin.Engine) {
 
 		fileGroup.GET("/stats", h.GetUserFileStats())           // 获取用户文件统计
 		fileGroup.GET("/:fileId/versions", h.GetFileVersions()) // 获取文件版本
+	}
 
-		// 新增预览和下载接口
-		fileGroup.GET("/:fileId/preview", h.PreviewFile())    // 统一文件预览接口
-		fileGroup.GET("/:fileId/download", h.DownloadFile())  // 统一文件下载接口
-		fileGroup.GET("/:fileId/text", h.PreviewTextFile())   // 文本文件预览接口
-		fileGroup.GET("/:fileId/thumbnail", h.GetThumbnail()) // 获取文件缩略图
+	downloadGroup := fileGroup.Group("download")
+	{
+		downloadGroup.POST("", h.DownloadFile())
+		downloadGroup.GET("/:fileId/stream", h.DownloadLargeFile())     // 流式下载大文件
+		downloadGroup.GET("/:fileId/progress", h.GetDownloadProgress()) // 获取下载进度信息
 	}
 }
 
@@ -71,7 +75,7 @@ func (h *FileHandler) ListContents() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		contents, err := h.file.ListPathContents(c.Request.Context(), uuid, path)
+		contents, err := h.upload.ListPathContents(c.Request.Context(), uuid, path)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -102,7 +106,7 @@ func (h *FileHandler) CreateItem() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		fileResp, err := h.file.CreateFile(c.Request.Context(), req, uuid)
+		fileResp, err := h.upload.CreateFile(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -143,7 +147,7 @@ func (h *FileHandler) GetFileInfo() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
+		fileInfo, err := h.upload.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -174,7 +178,7 @@ func (h *FileHandler) DeleteByPath() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.DeleteByPath(c.Request.Context(), uuid, path)
+		err := h.upload.DeleteByPath(c.Request.Context(), uuid, path)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -205,7 +209,7 @@ func (h *FileHandler) BatchDelete() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.BatchDeleteByPaths(c.Request.Context(), uuid, req.Paths)
+		err := h.upload.BatchDeleteByPaths(c.Request.Context(), uuid, req.Paths)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -244,7 +248,7 @@ func (h *FileHandler) UpdateFileInfo() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		fileInfo, err := h.file.UpdateFile(c.Request.Context(), fileId, uuid, req)
+		fileInfo, err := h.upload.UpdateFile(c.Request.Context(), fileId, uuid, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -278,7 +282,7 @@ func (h *FileHandler) MoveItem() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.MovePath(c.Request.Context(), uuid, req.SourcePath, req.TargetPath)
+		err := h.upload.MovePath(c.Request.Context(), uuid, req.SourcePath, req.TargetPath)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -312,7 +316,7 @@ func (h *FileHandler) CopyItem() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		err := h.file.CopyPath(c.Request.Context(), uuid, req.SourcePath, req.TargetPath)
+		err := h.upload.CopyPath(c.Request.Context(), uuid, req.SourcePath, req.TargetPath)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -343,7 +347,7 @@ func (h *FileHandler) PreCreateCheck() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		resp, err := h.file.PreUploadCheck(c.Request.Context(), req, uuid)
+		resp, err := h.upload.PreUploadCheck(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -374,7 +378,7 @@ func (h *FileHandler) ConfirmCreate() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		fileResp, err := h.file.ConfirmUpload(c.Request.Context(), req, uuid)
+		fileResp, err := h.upload.ConfirmUpload(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -405,7 +409,7 @@ func (h *FileHandler) InitUpload() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		resp, err := h.file.InitUpload(c.Request.Context(), uuid, req)
+		resp, err := h.upload.InitUpload(c.Request.Context(), uuid, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -439,7 +443,7 @@ func (h *FileHandler) CompleteUpload() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		resp, err := h.file.CompleteUpload(c.Request.Context(), uuid, uploadId, req)
+		resp, err := h.upload.CompleteUpload(c.Request.Context(), uuid, uploadId, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -462,7 +466,7 @@ func (h *FileHandler) GetUserFileStats() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uuid := c.MustGet("uuid").(int64)
 
-		stats, err := h.file.GetUserFileStats(c.Request.Context(), uuid)
+		stats, err := h.upload.GetUserFileStats(c.Request.Context(), uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -494,14 +498,13 @@ func (h *FileHandler) GetFileVersions() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		// 获取文件信息以获取哈希值
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
+		fileInfo, err := h.upload.GetFileById(c.Request.Context(), fileId, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 
-		versions, err := h.file.GetFileVersionsByHash(c.Request.Context(), uuid, fileInfo.Hash)
+		versions, err := h.upload.GetFileVersionsByHash(c.Request.Context(), uuid, fileInfo.Hash)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
@@ -511,68 +514,99 @@ func (h *FileHandler) GetFileVersions() gin.HandlerFunc {
 	}
 }
 
-// PreviewFile 统一文件预览接口
-// @Summary 统一文件预览接口
-// @Description 根据文件类型智能决定预览方式：可预览文件返回预览页面，不可预览文件自动下载
-// @Tags 文件管理
+// DownloadFile 下载文件接口
+// @Summary 下载文件
+// @Description 智能下载文件：小文件直接返回链接或ZIP
+// @Tags 文件下载
 // @Accept json
 // @Produce json
+// @Param req body model.DownloadFileReq true "下载请求"
+// @Success 200 {object} response.Response{data=model.DownloadFileResp} "操作成功"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/download [post]
+func (h *FileHandler) DownloadFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req model.DownloadFileReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error: "+err.Error()))
+			return
+		}
+
+		uid := c.MustGet("uuid").(int64)
+
+		// 首先尝试小文件下载
+		smallFileResp, err := h.download.DownloadSmallFiles(c.Request.Context(), uid, req.FileIDs, req.ZipName)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(30000, err.Error()))
+			return
+		}
+		// 如果是ZIP文件，需要特殊处理
+		if smallFileResp.Type == "zip" && smallFileResp.ZipData != nil {
+			// 设置ZIP文件下载的响应头
+			c.Header("Content-Disposition", "attachment; filename=\""+smallFileResp.ZipName+"\"")
+			c.Header("Content-Type", "application/zip")
+			c.Header("Content-Length", strconv.Itoa(len(smallFileResp.ZipData)))
+
+			// 直接返回ZIP数据
+			c.Data(http.StatusOK, "application/zip", smallFileResp.ZipData)
+			return
+		}
+
+		response.SuccessWithData(c, smallFileResp)
+	}
+}
+
+// DownloadLargeFile 大文件下载接口
+// @Summary 大文件流式下载
+// @Description 支持 HTTP Range 请求的大文件下载，实现断点续传功能
+// @Tags 文件下载
+// @Accept json
+// @Produce octet-stream
 // @Param fileId path int true "文件ID"
-// @Success 200 {object} response.Response "操作成功"
+// @Param Range header string false "HTTP Range请求头，格式: bytes=start-end"
+// @Success 200 {file} binary "完整文件内容"
+// @Success 206 {file} binary "部分文件内容（Range请求）"
 // @Failure 400 {object} response.Response "参数错误(code=20001)"
 // @Failure 404 {object} response.Response "文件不存在(code=40004)"
+// @Failure 416 {object} response.Response "Range请求无效(code=41600)"
 // @Failure 500 {object} response.Response "系统错误(code=50000)"
-// @Router /files/{fileId}/preview [get]
-func (h *FileHandler) PreviewFile() gin.HandlerFunc {
+// @Router /files/download/{fileId}/stream [get]
+func (h *FileHandler) DownloadLargeFile() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		fileIdStr := c.Param("fileId")
+		vipTypStr := c.Query("vip")
 		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file ID"))
 			return
 		}
+		vipTyp, _ := strconv.Atoi(vipTypStr)
 
-		uuid := c.MustGet("uuid").(int64)
+		uid := c.MustGet("uuid").(int64)
 
-		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
+		err = h.download.StreamDownload(c.Request.Context(), c, uid, fileId, consts.VIPType(vipTyp))
 		if err != nil {
-			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
+			fmt.Println(err)
 			return
-		}
-
-		// 判断文件操作类型
-		actionInfo := h.file.GetFileActionInfo(fileId, fileInfo.Name, fileInfo.URL)
-
-		switch actionInfo.Action {
-		case "preview":
-			// 可预览文件，重定向到MinIO原生URL
-			c.Redirect(http.StatusFound, fileInfo.URL)
-		case "text":
-			// 文本文件，返回文本内容预览
-			c.Redirect(http.StatusFound, fmt.Sprintf("/api/files/%d/text", fileId))
-		case "download":
-			// 不可预览文件，直接下载
-			c.Redirect(http.StatusFound, fmt.Sprintf("/api/files/%d/download", fileId))
-		default:
-			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, "unknown file action"))
 		}
 	}
 }
 
-// DownloadFile 统一文件下载接口
-// @Summary 统一文件下载接口
-// @Description 提供统一的文件下载功能，设置正确的文件名和Content-Disposition
-// @Tags 文件管理
+// GetDownloadProgress 获取下载进度信息
+// @Summary 获取下载进度信息
+// @Description 获取文件的下载状态和断点续传信息
+// @Tags 文件下载
 // @Accept json
-// @Produce octet-stream
+// @Produce json
 // @Param fileId path int true "文件ID"
-// @Success 200 {file} binary "文件内容"
+// @Success 200 {object} response.Response{data=service.DownloadProgressInfo} "操作成功"
 // @Failure 400 {object} response.Response "参数错误(code=20001)"
 // @Failure 404 {object} response.Response "文件不存在(code=40004)"
 // @Failure 500 {object} response.Response "系统错误(code=50000)"
-// @Router /files/{fileId}/download [get]
-func (h *FileHandler) DownloadFile() gin.HandlerFunc {
+// @Router /files/download/v2/{fileId}/progress [get]
+func (h *FileHandler) GetDownloadProgress() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		fileIdStr := c.Param("fileId")
 		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
@@ -581,123 +615,14 @@ func (h *FileHandler) DownloadFile() gin.HandlerFunc {
 			return
 		}
 
-		uuid := c.MustGet("uuid").(int64)
+		uid := c.MustGet("uuid").(int64)
 
-		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
-		if err != nil {
-			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
-			return
-		}
-
-		// 设置下载相关的响应头 - 强制下载
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileInfo.Name))
-		c.Header("Content-Type", "application/octet-stream")
-
-		// 从URL中提取对象键
-		objectKey := h.file.GetObjectKeyFromURL(fileInfo.URL)
-		if objectKey == "" {
-			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, "invalid file URL"))
-			return
-		}
-
-		// 获取文件下载信息
-		downloadInfo, err := h.file.DownloadFile(c.Request.Context(), fileId, uuid)
+		progress, err := h.download.GetDownloadProgress(c.Request.Context(), uid, fileId)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
-		defer downloadInfo.Object.Close()
 
-		// 直接将文件流传输给客户端，强制作为下载处理
-		c.Header("Content-Length", fmt.Sprintf("%d", downloadInfo.Size))
-		c.DataFromReader(http.StatusOK, downloadInfo.Size, "application/octet-stream", downloadInfo.Object, nil)
-	}
-}
-
-// PreviewTextFile 文本文件预览接口
-// @Summary 文本文件预览接口
-// @Description 提供文本文件的在线预览功能
-// @Tags 文件管理
-// @Accept json
-// @Produce plain
-// @Param fileId path int true "文件ID"
-// @Success 200 {string} string "文本内容"
-// @Failure 400 {object} response.Response "参数错误(code=20001)"
-// @Failure 404 {object} response.Response "文件不存在(code=40004)"
-// @Failure 500 {object} response.Response "系统错误(code=50000)"
-// @Router /files/{fileId}/text [get]
-func (h *FileHandler) PreviewTextFile() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		fileIdStr := c.Param("fileId")
-		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file ID"))
-			return
-		}
-
-		uuid := c.MustGet("uuid").(int64)
-
-		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
-		if err != nil {
-			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
-			return
-		}
-
-		// 验证是否为文本文件
-		actionInfo := h.file.GetFileActionInfo(fileId, fileInfo.Name, fileInfo.URL)
-		if actionInfo.Action != "text" {
-			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "file is not a text file"))
-			return
-		}
-
-		// 重定向到前端的文本预览页面
-		textPreviewURL := fmt.Sprintf("/text-preview/%d", fileId)
-		c.Redirect(http.StatusFound, textPreviewURL)
-	}
-}
-
-// GetThumbnail 获取文件缩略图
-// @Summary 获取文件缩略图
-// @Description 获取支持缩略图的文件的缩略图
-// @Tags 文件管理
-// @Accept json
-// @Produce json
-// @Param fileId path int true "文件ID"
-// @Success 200 {object} response.Response{data=map[string]string} "操作成功"
-// @Failure 400 {object} response.Response "参数错误(code=20001)"
-// @Failure 404 {object} response.Response "文件不存在(code=40004)"
-// @Failure 500 {object} response.Response "系统错误(code=50000)"
-// @Router /files/{fileId}/thumbnail [get]
-func (h *FileHandler) GetThumbnail() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		fileIdStr := c.Param("fileId")
-		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file ID"))
-			return
-		}
-
-		uuid := c.MustGet("uuid").(int64)
-
-		// 获取文件信息
-		fileInfo, err := h.file.GetFileById(c.Request.Context(), fileId, uuid)
-		if err != nil {
-			response.Error(c, http.StatusNotFound, gerrors.NewBizError(40004, "file not found"))
-			return
-		}
-
-		// 检查是否支持缩略图
-		actionInfo := h.file.GetFileActionInfo(fileId, fileInfo.Name, fileInfo.URL)
-		if !actionInfo.HasThumbnail {
-			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "file does not support thumbnail"))
-			return
-		}
-
-		// 返回缩略图URL（这里可以实现实际的缩略图生成逻辑）
-		response.SuccessWithData(c, map[string]string{
-			"thumbnailUrl": fileInfo.URL, // 临时返回原始URL，后续可以实现真正的缩略图服务
-		})
+		response.SuccessWithData(c, progress)
 	}
 }

@@ -21,7 +21,7 @@ func NewStorageService(cli *minio.Client) *StorageService {
 	return &StorageService{client: cli}
 }
 
-// Presign 生成带严格策略的预签名URL
+// Presign 生成带严格策略的预签名 URL
 func (s *StorageService) Presign(ctx context.Context, uid int64, filename string, fileSize int64, fileHash string, typ string) (string, error) {
 	var objectKey string
 	var bucket string
@@ -49,7 +49,7 @@ func (s *StorageService) Presign(ctx context.Context, uid int64, filename string
 	return preUrl.String(), nil
 }
 
-// PresignForChunk 为分块上传生成预签名URL，保持对象键不变
+// PresignForChunk 为分块上传生成预签名 URL
 func (s *StorageService) PresignForChunk(ctx context.Context, chunkKey string) (string, error) {
 	bucket := consts.FileBucket
 	expire := time.Hour * 1
@@ -57,6 +57,24 @@ func (s *StorageService) PresignForChunk(ctx context.Context, chunkKey string) (
 	preUrl, err := s.client.PresignedPutObject(ctx, bucket, chunkKey, expire)
 	if err != nil {
 		return "", fmt.Errorf("generate chunk presigned URL error: %w", err)
+	}
+
+	return preUrl.String(), nil
+}
+
+// PresignDownload 为小文件下载生成预签名 URL
+func (s *StorageService) PresignDownload(ctx context.Context, objectKey string, filename string, expire time.Duration) (string, error) {
+	bucket := consts.FileBucket
+
+	// Set request parameters for download
+	reqParams := make(url.Values)
+	if filename != "" {
+		reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	}
+
+	preUrl, err := s.client.PresignedGetObject(ctx, bucket, objectKey, expire, reqParams)
+	if err != nil {
+		return "", fmt.Errorf("generate download presigned URL error: %w", err)
 	}
 
 	return preUrl.String(), nil
@@ -174,10 +192,10 @@ func (s *StorageService) ExtractObjectKey(fileURL string) string {
 }
 
 // GetObject 获取对象内容，用于文件下载
-func (s *StorageService) GetObject(ctx context.Context, objectKey string) (*minio.Object, error) {
+func (s *StorageService) GetObject(ctx context.Context, objectKey string, opt minio.GetObjectOptions) (*minio.Object, error) {
 	bucket := consts.FileBucket
 
-	object, err := s.client.GetObject(ctx, bucket, objectKey, minio.GetObjectOptions{})
+	object, err := s.client.GetObject(ctx, bucket, objectKey, opt)
 	if err != nil {
 		return nil, fmt.Errorf("get object %s error: %w", objectKey, err)
 	}

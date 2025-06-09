@@ -8,6 +8,8 @@ import (
 	"github.com/crazyfrankie/cloud/internal/file/service"
 	"github.com/crazyfrankie/cloud/internal/storage"
 	"github.com/google/wire"
+	"github.com/minio/minio-go/v7"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -17,10 +19,11 @@ type Module struct {
 	Handler *Handler
 }
 
-func InitFileModule(db *gorm.DB, st *storage.Module) *Module {
+func InitFileModule(db *gorm.DB, st *storage.Module, rdb redis.Cmdable, minio *minio.Client) *Module {
 	wire.Build(
 		dao.NewFileDao,
-		service.NewFileService,
+		service.NewUploadService,
+		service.NewDownloadService,
 		handler.NewFileHandler,
 
 		wire.FieldsOf(new(*storage.Module), "Service"),

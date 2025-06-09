@@ -75,6 +75,16 @@ func (d *FileDao) GetFileById(ctx context.Context, fileId int64, uid int64) (*Fi
 	return &file, nil
 }
 
+// FindByID 根据ID查找单个文件
+func (d *FileDao) FindByID(ctx context.Context, uid int64, fileId int64) (*File, error) {
+	var file File
+	err := d.db.WithContext(ctx).Where("id = ? AND uid = ? AND status = ?", fileId, uid, 1).First(&file).Error
+	if err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
+
 // ListPathContents 列出指定路径下的内容
 func (d *FileDao) ListPathContents(ctx context.Context, uid int64, path string) ([]*File, error) {
 	var files []*File
@@ -161,6 +171,16 @@ func (d *FileDao) UpdateFile(ctx context.Context, fileId int64, uid int64, updat
 	return d.db.WithContext(ctx).Model(&File{}).
 		Where("id = ? AND uid = ? AND status = ?", fileId, uid, 1).
 		Updates(updates).Error
+}
+
+func (d *FileDao) FindByIds(ctx context.Context, uid int64, fileIds []int64) ([]File, error) {
+	var files []File
+	if len(fileIds) == 0 {
+		return files, nil
+	}
+
+	err := d.db.WithContext(ctx).Where("id IN ? AND uid = ? AND status = ?", fileIds, uid, 1).Find(&files).Error
+	return files, err
 }
 
 // MovePath 移动文件/文件夹到新路径

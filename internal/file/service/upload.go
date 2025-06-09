@@ -16,17 +16,17 @@ import (
 	"github.com/crazyfrankie/cloud/internal/storage/service"
 )
 
-type FileService struct {
+type UploadService struct {
 	dao            *dao.FileDao
 	storageService *service.StorageService
 }
 
-func NewFileService(dao *dao.FileDao, storageService *service.StorageService) *FileService {
-	return &FileService{dao: dao, storageService: storageService}
+func NewUploadService(dao *dao.FileDao, storageService *service.StorageService) *UploadService {
+	return &UploadService{dao: dao, storageService: storageService}
 }
 
 // PreUploadCheck 预上传检查，检查文件是否已存在
-func (s *FileService) PreUploadCheck(ctx context.Context, req model.PreUploadCheckReq, uid int64) (*model.PreUploadCheckResp, error) {
+func (s *UploadService) PreUploadCheck(ctx context.Context, req model.PreUploadCheckReq, uid int64) (*model.PreUploadCheckResp, error) {
 	if req.ParentPath != "/" {
 		exists, err := s.dao.PathExists(ctx, uid, req.ParentPath, true)
 		if err != nil {
@@ -63,7 +63,7 @@ func (s *FileService) PreUploadCheck(ctx context.Context, req model.PreUploadChe
 }
 
 // CreateFile 创建文件记录
-func (s *FileService) CreateFile(ctx context.Context, req model.CreateFileReq, uid int64) (*model.FileResp, error) {
+func (s *UploadService) CreateFile(ctx context.Context, req model.CreateFileReq, uid int64) (*model.FileResp, error) {
 	// 验证父目录是否存在（如果不是根目录）
 	if req.Path != "/" {
 		parentPath := filepath.Dir(req.Path)
@@ -147,12 +147,12 @@ func (s *FileService) CreateFile(ctx context.Context, req model.CreateFileReq, u
 }
 
 // ConfirmUpload 确认上传完成
-func (s *FileService) ConfirmUpload(ctx context.Context, req model.CreateFileReq, uid int64) (*model.FileResp, error) {
+func (s *UploadService) ConfirmUpload(ctx context.Context, req model.CreateFileReq, uid int64) (*model.FileResp, error) {
 	return s.CreateFile(ctx, req, uid)
 }
 
 // ListPathContents 列出指定路径下的内容
-func (s *FileService) ListPathContents(ctx context.Context, uid int64, path string) (*model.ListContentsResp, error) {
+func (s *UploadService) ListPathContents(ctx context.Context, uid int64, path string) (*model.ListContentsResp, error) {
 	// 验证目录是否存在
 	if path != "/" {
 		exists, err := s.dao.PathExists(ctx, uid, path, true)
@@ -186,17 +186,6 @@ func (s *FileService) ListPathContents(ctx context.Context, uid int64, path stri
 			Status: file.Status,
 		}
 
-		// 如果是文件（非文件夹），添加操作信息
-		if !file.IsDir {
-			actionInfo := s.GetFileActionInfo(file.ID, file.Name, file.URL)
-			fileResp.Action = string(actionInfo.Action)
-			fileResp.PreviewURL = fmt.Sprintf("/api/files/%d/preview", file.ID)
-			fileResp.DownloadURL = fmt.Sprintf("/api/files/%d/download", file.ID)
-			fileResp.Previewable = actionInfo.Previewable
-			fileResp.HasThumbnail = actionInfo.HasThumbnail
-			fileResp.ContentType = actionInfo.ContentType
-		}
-
 		contents = append(contents, fileResp)
 	}
 
@@ -208,7 +197,7 @@ func (s *FileService) ListPathContents(ctx context.Context, uid int64, path stri
 }
 
 // MovePath 移动文件/文件夹到新路径
-func (s *FileService) MovePath(ctx context.Context, uid int64, oldPath, newPath string) error {
+func (s *UploadService) MovePath(ctx context.Context, uid int64, oldPath, newPath string) error {
 	// 检查源路径是否存在
 	sourceFile, err := s.dao.GetFileByPath(ctx, uid, oldPath)
 	if err != nil {
@@ -233,7 +222,7 @@ func (s *FileService) MovePath(ctx context.Context, uid int64, oldPath, newPath 
 }
 
 // CopyPath 复制文件/文件夹到新路径
-func (s *FileService) CopyPath(ctx context.Context, uid int64, sourcePath, targetPath string) error {
+func (s *UploadService) CopyPath(ctx context.Context, uid int64, sourcePath, targetPath string) error {
 	// 检查源路径是否存在
 	sourceFile, err := s.dao.GetFileByPath(ctx, uid, sourcePath)
 	if err != nil {
@@ -290,7 +279,7 @@ func (s *FileService) CopyPath(ctx context.Context, uid int64, sourcePath, targe
 }
 
 // copyFolderRecursive 递归复制文件夹及其内容
-func (s *FileService) copyFolderRecursive(ctx context.Context, uid int64, sourcePath, targetPath string) error {
+func (s *UploadService) copyFolderRecursive(ctx context.Context, uid int64, sourcePath, targetPath string) error {
 	// 创建目标文件夹
 	newFolder := &dao.File{
 		Name:           filepath.Base(targetPath),
@@ -348,7 +337,7 @@ func (s *FileService) copyFolderRecursive(ctx context.Context, uid int64, source
 }
 
 // InitUpload 初始化优化的分块上传
-func (s *FileService) InitUpload(ctx context.Context, uid int64, req model.InitUploadReq) (*model.InitUploadResp, error) {
+func (s *UploadService) InitUpload(ctx context.Context, uid int64, req model.InitUploadReq) (*model.InitUploadResp, error) {
 	// 验证父目录是否存在
 	if req.ParentPath != "/" {
 		exists, err := s.dao.PathExists(ctx, uid, req.ParentPath, true)
@@ -419,7 +408,7 @@ func (s *FileService) InitUpload(ctx context.Context, uid int64, req model.InitU
 }
 
 // CompleteUpload 完成分块上传
-func (s *FileService) CompleteUpload(ctx context.Context, uid int64, uploadId string, req model.CompleteUploadReq) (*model.FileResp, error) {
+func (s *UploadService) CompleteUpload(ctx context.Context, uid int64, uploadId string, req model.CompleteUploadReq) (*model.FileResp, error) {
 	// 验证所有分块
 	if len(req.UploadedChunks) == 0 {
 		return nil, errors.New("no uploaded chunks provided")
@@ -549,7 +538,7 @@ func (s *FileService) CompleteUpload(ctx context.Context, uid int64, uploadId st
 }
 
 // GetUploadStatus 获取已上传的分块状态
-func (s *FileService) GetUploadStatus(ctx context.Context, uid int64, uploadId string) []*model.PartStatusResp {
+func (s *UploadService) GetUploadStatus(ctx context.Context, uid int64, uploadId string) []*model.PartStatusResp {
 	objectInfo := s.storageService.GetUploadChunkObjects(ctx, uid, uploadId)
 
 	res := make([]*model.PartStatusResp, 0, len(objectInfo))
@@ -564,7 +553,7 @@ func (s *FileService) GetUploadStatus(ctx context.Context, uid int64, uploadId s
 }
 
 // GetFileById 根据ID获取文件
-func (s *FileService) GetFileById(ctx context.Context, fileId int64, uid int64) (*model.FileResp, error) {
+func (s *UploadService) GetFileById(ctx context.Context, fileId int64, uid int64) (*model.FileResp, error) {
 	file, err := s.dao.GetFileById(ctx, fileId, uid)
 	if err != nil {
 		return nil, fmt.Errorf("file not found: %w", err)
@@ -585,7 +574,7 @@ func (s *FileService) GetFileById(ctx context.Context, fileId int64, uid int64) 
 }
 
 // UpdateFile 更新文件信息
-func (s *FileService) UpdateFile(ctx context.Context, fileId int64, uid int64, req model.UpdateFileReq) (*model.FileResp, error) {
+func (s *UploadService) UpdateFile(ctx context.Context, fileId int64, uid int64, req model.UpdateFileReq) (*model.FileResp, error) {
 	// 构建更新字段
 	updates := make(map[string]interface{})
 
@@ -621,7 +610,7 @@ func (s *FileService) UpdateFile(ctx context.Context, fileId int64, uid int64, r
 }
 
 // GetUserFileStats 获取用户文件统计信息
-func (s *FileService) GetUserFileStats(ctx context.Context, uid int64) (*model.FileStatsResp, error) {
+func (s *UploadService) GetUserFileStats(ctx context.Context, uid int64) (*model.FileStatsResp, error) {
 	stats, err := s.dao.GetUserFileStats(ctx, uid)
 	if err != nil {
 		return nil, fmt.Errorf("get user file stats error: %w", err)
@@ -637,7 +626,7 @@ func (s *FileService) GetUserFileStats(ctx context.Context, uid int64) (*model.F
 }
 
 // GetFileVersionsByHash 获取文件版本
-func (s *FileService) GetFileVersionsByHash(ctx context.Context, uid int64, hash string) ([]*model.FileResp, error) {
+func (s *UploadService) GetFileVersionsByHash(ctx context.Context, uid int64, hash string) ([]*model.FileResp, error) {
 	files, err := s.dao.GetFileVersionsByHash(ctx, uid, hash)
 	if err != nil {
 		return nil, fmt.Errorf("get file versions error: %w", err)
@@ -663,7 +652,7 @@ func (s *FileService) GetFileVersionsByHash(ctx context.Context, uid int64, hash
 }
 
 // buildFilePath 构建完整的文件/文件夹路径
-func (s *FileService) buildFilePath(parentPath, name string) string {
+func (s *UploadService) buildFilePath(parentPath, name string) string {
 	if parentPath == "/" {
 		return "/" + name
 	}
@@ -671,7 +660,7 @@ func (s *FileService) buildFilePath(parentPath, name string) string {
 }
 
 // validatePath 验证路径格式
-func (s *FileService) validatePath(path string) error {
+func (s *UploadService) validatePath(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
 	}
@@ -687,57 +676,8 @@ func (s *FileService) validatePath(path string) error {
 	return nil
 }
 
-// GetFileActionInfo 获取文件操作信息
-func (s *FileService) GetFileActionInfo(fileID int64, filename string, originalURL string) *utils.FileActionInfo {
-	ext := strings.ToLower(filepath.Ext(filename))
-	config := utils.GetFilePreviewConfig()
-	action := s.DetermineFileAction(filename)
-
-	info := &utils.FileActionInfo{
-		Action:       action,
-		Previewable:  config.PreviewableTypes[ext],
-		Downloadable: true, // 所有文件都可以下载
-		HasThumbnail: config.ThumbnailTypes[ext],
-		ContentType:  utils.GetContentType(ext),
-	}
-
-	// 根据操作类型设置URL
-	switch action {
-	case utils.ActionPreview:
-		// 可预览文件使用原始URL
-		info.URL = originalURL
-	case utils.ActionText:
-		// 文本文件使用专门的文本预览接口
-		info.URL = fmt.Sprintf("/api/files/%d/text", fileID)
-	case utils.ActionDownload:
-		// 不可预览文件使用下载接口
-		info.URL = fmt.Sprintf("/api/files/%d/download", fileID)
-	}
-
-	return info
-}
-
-// DetermineFileAction 根据文件扩展名决定操作类型
-func (s *FileService) DetermineFileAction(filename string) utils.FileAction {
-	ext := strings.ToLower(filepath.Ext(filename))
-	config := utils.GetFilePreviewConfig()
-
-	// 检查是否支持在线预览
-	if config.PreviewableTypes[ext] {
-		return utils.ActionPreview
-	}
-
-	// 检查是否是文本文件
-	if config.TextTypes[ext] {
-		return utils.ActionText
-	}
-
-	// 其他文件类型默认下载
-	return utils.ActionDownload
-}
-
 // DeleteByPath 根据路径删除文件/文件夹
-func (s *FileService) DeleteByPath(ctx context.Context, uid int64, path string) error {
+func (s *UploadService) DeleteByPath(ctx context.Context, uid int64, path string) error {
 	// 检查路径是否存在
 	file, err := s.dao.GetFileByPath(ctx, uid, path)
 	if err != nil {
@@ -785,7 +725,7 @@ func (s *FileService) DeleteByPath(ctx context.Context, uid int64, path string) 
 }
 
 // BatchDeleteByPaths 批量删除多个路径
-func (s *FileService) BatchDeleteByPaths(ctx context.Context, uid int64, paths []string) error {
+func (s *UploadService) BatchDeleteByPaths(ctx context.Context, uid int64, paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
@@ -798,41 +738,4 @@ func (s *FileService) BatchDeleteByPaths(ctx context.Context, uid int64, paths [
 		}
 	}
 	return nil
-}
-
-// DownloadFile 下载文件，返回文件流
-func (s *FileService) DownloadFile(ctx context.Context, fileId int64, uid int64) (*model.DownloadFileInfo, error) {
-	// 获取文件信息
-	file, err := s.dao.GetFileById(ctx, fileId, uid)
-	if err != nil {
-		return nil, fmt.Errorf("file not found: %w", err)
-	}
-
-	// 检查是否为目录
-	if file.IsDir {
-		return nil, fmt.Errorf("cannot download directory")
-	}
-
-	// 从URL中提取对象键
-	objectKey := s.storageService.ExtractObjectKey(file.URL)
-	if objectKey == "" {
-		return nil, fmt.Errorf("invalid file URL")
-	}
-
-	// 获取文件对象
-	object, err := s.storageService.GetObject(ctx, objectKey)
-	if err != nil {
-		return nil, fmt.Errorf("get file object error: %w", err)
-	}
-
-	return &model.DownloadFileInfo{
-		Object:   object,
-		FileName: file.Name,
-		Size:     file.Size,
-	}, nil
-}
-
-// GetObjectKeyFromURL 从URL中提取对象键
-func (s *FileService) GetObjectKeyFromURL(fileURL string) string {
-	return s.storageService.ExtractObjectKey(fileURL)
 }

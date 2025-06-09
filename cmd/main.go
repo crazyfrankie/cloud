@@ -18,11 +18,11 @@ func main() {
 	engine := ioc.InitEngine()
 
 	srv := &http.Server{
-		Addr:    conf.GetConf().Server,
+		Addr:    conf.GetConf().System.Server,
 		Handler: engine,
 	}
 
-	log.Printf("Server is running at http://localhost%s", conf.GetConf().Server)
+	log.Printf("Server is running at http://localhost%s", conf.GetConf().System.Server)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("failed start server")
 	}

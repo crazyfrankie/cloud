@@ -1,5 +1,9 @@
-server: :8089
-
+system:
+  server: :8089
+  # 10 MB
+  userBytesLimitPerSec: 10485760
+  # 100 MB
+  globalBytesLimitPerSec: 104857600
 minio:
   endpoint: "localhost:9000"
   accessKey: IUID8yOPM25XR7EnOXLV

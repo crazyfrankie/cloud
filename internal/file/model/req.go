@@ -63,3 +63,8 @@ type CompleteUploadReq struct {
 	ParentPath        string          `json:"parentPath" binding:"required"`     // 父目录路径
 	ClientFingerprint string          `json:"clientFingerprint"`                 // 客户端唯一标识，用于统计
 }
+
+type DownloadFileReq struct {
+	FileIDs []int64 `json:"fileIds" binding:"required"` // 文件ID列表
+	ZipName string  `json:"zipName"`                    // 多文件时的ZIP文件名（可选）
+}

@@ -15,11 +15,17 @@ var (
 )
 
 type Config struct {
-	Server string `yaml:"server"`
+	System System `yaml:"system"`
 	MySQL  MySQL  `yaml:"mysql"`
 	Redis  Redis  `yaml:"redis"`
 	MinIO  MinIO  `yaml:"minio"`
 	JWT    JWT    `yaml:"jwt"`
+}
+
+type System struct {
+	Server                 string `yaml:"server"`
+	UserBytesLimitPerSec   int64  `yaml:"userBytesLimitPerSec"`
+	GlobalBytesLimitPerSec int64  `yaml:"globalBytesLimitPerSec"`
 }
 
 type MySQL struct {

@@ -42,7 +42,7 @@ func InitEngine() *gin.Engine {
 	authHandler := authModule.Handler
 	storageModule := storage.InitStorageModule(client)
 	storageHandler := storageModule.Handler
-	fileModule := file.InitFileModule(db, storageModule)
+	fileModule := file.InitFileModule(db, storageModule, cmdable, client)
 	fileHandler := fileModule.Handler
 	engine := InitWeb(v, userHandler, authHandler, storageHandler, fileHandler)
 	return engine

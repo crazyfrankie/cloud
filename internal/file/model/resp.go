@@ -14,14 +14,6 @@ type FileResp struct {
 	Ctime  int64  `json:"ctime"`  // 创建时间
 	Utime  int64  `json:"utime"`  // 更新时间
 	Status int    `json:"status"` // 状态
-
-	// 新增字段：文件操作信息
-	Action       string `json:"action,omitempty"`       // 操作类型：preview/download/text
-	PreviewURL   string `json:"previewUrl,omitempty"`   // 预览URL
-	DownloadURL  string `json:"downloadUrl,omitempty"`  // 下载URL
-	Previewable  bool   `json:"previewable,omitempty"`  // 是否可预览
-	HasThumbnail bool   `json:"hasThumbnail,omitempty"` // 是否有缩略图
-	ContentType  string `json:"contentType,omitempty"`  // MIME类型
 }
 
 // PreUploadCheckResp 预上传检查响应
@@ -102,4 +94,34 @@ type DownloadFileInfo struct {
 	Object   *minio.Object // MinIO object
 	FileName string
 	Size     int64
+}
+
+// DownloadFileResp 下载文件响应
+type DownloadFileResp struct {
+	Type      string           `json:"type"`              // single/zip
+	Files     []DownloadDetail `json:"files"`             // 文件列表
+	TotalSize int64            `json:"totalSize"`         // 总大小
+	ZipName   string           `json:"zipName,omitempty"` // ZIP文件名（多文件时）
+	DLink     string           `json:"dlink,omitempty"`   // 直接下载链接（单文件时）
+	ZipData   []byte           `json:"-"`                 // ZIP数据（不序列化到JSON）
+}
+
+// DownloadDetail 下载文件详情
+type DownloadDetail struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Size  int64  `json:"size"`
+	DLink string `json:"dlink"` // 预签名下载链接
+}
+
+// DownloadProgressInfo 下载进度信息
+type DownloadProgressInfo struct {
+	FileID       int64  `json:"fileId"`
+	FileName     string `json:"fileName"`
+	ContentType  string `json:"contentType"`
+	TotalSize    int64  `json:"totalSize"`
+	Range        string `json:"range,omitempty"`        // HTTP Range请求范围
+	AcceptRanges bool   `json:"acceptRanges"`           // 是否支持断点续传
+	LastModified string `json:"lastModified,omitempty"` // 最后修改时间
+	ETag         string `json:"etag,omitempty"`         // 文件ETag
 }

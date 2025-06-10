@@ -183,6 +183,17 @@ func (d *FileDao) FindByIds(ctx context.Context, uid int64, fileIds []int64) ([]
 	return files, err
 }
 
+// FindByIDs 根据ID列表查找文件（返回指针切片）
+func (d *FileDao) FindByIDs(ctx context.Context, uid int64, fileIds []int64) ([]*File, error) {
+	var files []*File
+	if len(fileIds) == 0 {
+		return files, nil
+	}
+
+	err := d.db.WithContext(ctx).Where("id IN ? AND uid = ? AND status = ?", fileIds, uid, 1).Find(&files).Error
+	return files, err
+}
+
 // MovePath 移动文件/文件夹到新路径
 func (d *FileDao) MovePath(ctx context.Context, uid int64, oldPath, newPath string) error {
 	// 验证新路径格式

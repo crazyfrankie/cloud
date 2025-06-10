@@ -21,9 +21,10 @@ import (
 func InitFileModule(db *gorm.DB, st *storage.Module, rdb redis.Cmdable, minio2 *minio.Client) *Module {
 	fileDao := dao.NewFileDao(db)
 	storageService := st.Service
-	uploadService := service.NewUploadService(fileDao, storageService)
+	fileService := service.NewFileService(fileDao, storageService)
+	uploadService := service.NewUploadService(fileDao, fileService, storageService)
 	downloadService := service.NewDownloadService(fileDao, storageService, minio2)
-	fileHandler := handler.NewFileHandler(uploadService, downloadService)
+	fileHandler := handler.NewFileHandler(uploadService, fileService, downloadService)
 	module := &Module{
 		Handler: fileHandler,
 	}

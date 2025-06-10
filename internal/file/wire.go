@@ -22,6 +22,7 @@ type Module struct {
 func InitFileModule(db *gorm.DB, st *storage.Module, rdb redis.Cmdable, minio *minio.Client) *Module {
 	wire.Build(
 		dao.NewFileDao,
+		service.NewFileService,
 		service.NewUploadService,
 		service.NewDownloadService,
 		handler.NewFileHandler,

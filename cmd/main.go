@@ -23,20 +23,22 @@ func main() {
 	}
 
 	log.Printf("Server is running at http://localhost%s", conf.GetConf().System.Server)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Printf("failed start server")
-	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("failed start server: %v", err)
+		}
+	}()
 
-	quit := make(chan os.Signal)
-
+	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	<-quit
+	log.Println("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer shutdownCancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("failed to shutdown main server: %v", err)
 	}
 	log.Println("Server exited gracefully")

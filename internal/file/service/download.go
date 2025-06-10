@@ -17,21 +17,22 @@ import (
 
 	"github.com/crazyfrankie/cloud/internal/file/dao"
 	"github.com/crazyfrankie/cloud/internal/file/model"
-	"github.com/crazyfrankie/cloud/internal/storage/service"
+	"github.com/crazyfrankie/cloud/internal/file/service/ratelimit"
+	"github.com/crazyfrankie/cloud/internal/storage"
 	"github.com/crazyfrankie/cloud/pkg/consts"
 )
 
 type DownloadService struct {
-	fileDao        *dao.FileDao
-	storageService *service.StorageService
-	minioClient    *minio.Client
+	fileDao     *dao.FileDao
+	storage     *storage.Service
+	minioClient *minio.Client
 }
 
-func NewDownloadService(d *dao.FileDao, storage *service.StorageService, minio *minio.Client) *DownloadService {
+func NewDownloadService(d *dao.FileDao, storage *storage.Service, minio *minio.Client) *DownloadService {
 	return &DownloadService{
-		fileDao:        d,
-		storageService: storage,
-		minioClient:    minio,
+		fileDao:     d,
+		storage:     storage,
+		minioClient: minio,
 	}
 }
 
@@ -58,8 +59,8 @@ func (s *DownloadService) DownloadSmallFiles(ctx context.Context, uid int64, fil
 	// 单个文件：返回直接下载链接
 	if len(files) == 1 {
 		file := files[0]
-		objectKey := s.storageService.ExtractObjectKey(file.URL)
-		presignedURL, err := s.storageService.PresignDownload(ctx, objectKey, file.Name, 24*time.Hour)
+		objectKey := s.storage.ExtractObjectKey(file.URL)
+		presignedURL, err := s.storage.PresignDownload(ctx, objectKey, file.Name, 24*time.Hour)
 		if err != nil {
 			return nil, fmt.Errorf("生成预签名URL失败: %w", err)
 		}
@@ -121,8 +122,8 @@ func (s *DownloadService) createZipArchive(ctx context.Context, files []dao.File
 
 	for _, file := range files {
 		// 从MinIO获取文件对象
-		objectKey := s.storageService.ExtractObjectKey(file.URL)
-		object, err := s.storageService.GetObject(ctx, objectKey, minio.GetObjectOptions{})
+		objectKey := s.storage.ExtractObjectKey(file.URL)
+		object, err := s.storage.GetObject(ctx, objectKey, minio.GetObjectOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("获取文件 %s 失败: %w", file.Name, err)
 		}
@@ -149,14 +150,6 @@ func (s *DownloadService) createZipArchive(ctx context.Context, files []dao.File
 	return buf.Bytes(), nil
 }
 
-// RangeInfo HTTP Range 请求信息
-type RangeInfo struct {
-	Start  int64
-	End    int64
-	Length int64
-	Total  int64
-}
-
 // StreamDownload 支持断点续传的大文件下载
 // 支持 HTTP Range 请求，实现断点续传功能
 func (s *DownloadService) StreamDownload(ctx context.Context, c *gin.Context, uid int64, fileID int64, vipTyp consts.VIPType) error {
@@ -170,8 +163,8 @@ func (s *DownloadService) StreamDownload(ctx context.Context, c *gin.Context, ui
 		return fmt.Errorf("不能下载文件夹")
 	}
 
-	objectKey := s.storageService.ExtractObjectKey(file.URL)
-	objInfo, err := s.storageService.GetObjectInfo(ctx, objectKey)
+	objectKey := s.storage.ExtractObjectKey(file.URL)
+	objInfo, err := s.storage.GetObjectInfo(ctx, objectKey)
 	if err != nil {
 		return fmt.Errorf("获取对象信息失败: %w", err)
 	}
@@ -184,7 +177,7 @@ func (s *DownloadService) StreamDownload(ctx context.Context, c *gin.Context, ui
 
 	// 解析Range请求头
 	rangeHeader := c.GetHeader("Range")
-	var rangeInfo *RangeInfo
+	var rangeInfo *ratelimit.RangeInfo
 
 	if rangeHeader != "" {
 		rangeInfo, err = s.parseRangeHeader(rangeHeader, fileSize)
@@ -195,7 +188,7 @@ func (s *DownloadService) StreamDownload(ctx context.Context, c *gin.Context, ui
 		}
 	} else {
 		// 没有Range请求，下载整个文件
-		rangeInfo = &RangeInfo{
+		rangeInfo = &ratelimit.RangeInfo{
 			Start:  0,
 			End:    fileSize - 1,
 			Length: fileSize,
@@ -216,7 +209,7 @@ func (s *DownloadService) StreamDownload(ctx context.Context, c *gin.Context, ui
 		}
 	}
 
-	object, err := s.storageService.GetObject(ctx, objectKey, opts)
+	object, err := s.storage.GetObject(ctx, objectKey, opts)
 	if err != nil {
 		return fmt.Errorf("获取对象失败: %w", err)
 	}
@@ -232,7 +225,7 @@ func (s *DownloadService) StreamDownload(ctx context.Context, c *gin.Context, ui
 }
 
 // parseRangeHeader 解析HTTP Range请求头
-func (s *DownloadService) parseRangeHeader(rangeHeader string, fileSize int64) (*RangeInfo, error) {
+func (s *DownloadService) parseRangeHeader(rangeHeader string, fileSize int64) (*ratelimit.RangeInfo, error) {
 	// 支持的格式：bytes=start-end, bytes=start-, bytes=-suffix
 	re := regexp.MustCompile(`bytes=(\d*)-(\d*)`)
 	matches := re.FindStringSubmatch(rangeHeader)
@@ -284,7 +277,7 @@ func (s *DownloadService) parseRangeHeader(rangeHeader string, fileSize int64) (
 		return nil, fmt.Errorf("Range范围无效")
 	}
 
-	return &RangeInfo{
+	return &ratelimit.RangeInfo{
 		Start:  start,
 		End:    end,
 		Length: end - start + 1,
@@ -293,8 +286,7 @@ func (s *DownloadService) parseRangeHeader(rangeHeader string, fileSize int64) (
 }
 
 // setDownloadHeaders 设置下载响应头
-func (s *DownloadService) setDownloadHeaders(c *gin.Context, file *dao.File, objInfo minio.ObjectInfo, rangeInfo *RangeInfo, isRange bool) {
-	// 基本头信息
+func (s *DownloadService) setDownloadHeaders(c *gin.Context, file *dao.File, objInfo minio.ObjectInfo, rangeInfo *ratelimit.RangeInfo, isRange bool) {
 	c.Header("Content-Type", objInfo.ContentType)
 	c.Header("Content-Length", strconv.FormatInt(rangeInfo.Length, 10))
 	c.Header("Accept-Ranges", "bytes")
@@ -308,7 +300,6 @@ func (s *DownloadService) setDownloadHeaders(c *gin.Context, file *dao.File, obj
 		c.Header("Last-Modified", objInfo.LastModified.UTC().Format(http.TimeFormat))
 	}
 
-	// 缓存控制
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "0")
@@ -323,17 +314,17 @@ func (s *DownloadService) setDownloadHeaders(c *gin.Context, file *dao.File, obj
 }
 
 // streamDataWithProgress 流式传输数据并支持进度监控
-func (s *DownloadService) streamDataWithProgress(c *gin.Context, src io.Reader, fileSize int64, rangInfo *RangeInfo, vipTyp consts.VIPType) (int64, error) {
+func (s *DownloadService) streamDataWithProgress(c *gin.Context, src io.Reader, fileSize int64, rangInfo *ratelimit.RangeInfo, vipTyp consts.VIPType) (int64, error) {
 	// 创建速率限制配置
-	var rateLimitConfig RateLimitConfig
+	var rateLimitConfig ratelimit.RateLimitConfig
 	if vipTyp == consts.NVIP {
-		rateLimitConfig = NewRateLimitConfig()
+		rateLimitConfig = ratelimit.NewRateLimitConfig()
 	} else {
-		rateLimitConfig = NewVipRateLimitConfig(vipTyp)
+		rateLimitConfig = ratelimit.NewVipRateLimitConfig(vipTyp)
 	}
 
 	// 创建速率限制写入器
-	rateLimitedWriter := NewRateLimitedWriter(
+	rateLimitedWriter := ratelimit.NewRateLimitedWriter(
 		c.Request.Context(),
 		c.Writer,
 		rateLimitConfig,
@@ -395,8 +386,8 @@ func (s *DownloadService) GetDownloadProgress(ctx context.Context, uid int64, fi
 		return nil, fmt.Errorf("不能下载文件夹")
 	}
 
-	objectKey := s.storageService.ExtractObjectKey(file.URL)
-	objInfo, err := s.storageService.GetObjectInfo(ctx, objectKey)
+	objectKey := s.storage.ExtractObjectKey(file.URL)
+	objInfo, err := s.storage.GetObjectInfo(ctx, objectKey)
 	if err != nil {
 		return nil, fmt.Errorf("获取对象信息失败: %w", err)
 	}
@@ -424,7 +415,7 @@ func (s *DownloadService) GetDownloadProgress(ctx context.Context, uid int64, fi
 
 // calculateOptimalBufferSize 根据文件大小和限流速率计算最优缓冲区大小
 // 针对大文件下载场景优化，缓冲区大小在1MB-20MB区间动态调整
-func calculateOptimalBufferSize(fileSize int64, rangeInfo *RangeInfo) int {
+func calculateOptimalBufferSize(fileSize int64, rangeInfo *ratelimit.RangeInfo) int {
 	const (
 		MB = 1024 * 1024
 		GB = 1024 * MB

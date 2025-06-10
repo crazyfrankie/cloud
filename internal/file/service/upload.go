@@ -225,7 +225,7 @@ func (s *UploadService) CompleteUpload(ctx context.Context, uid int64, uploadId 
 		}
 	}
 
-	result, err := s.dao.CreateFile(ctx, file)
+	err = s.dao.CreateFile(ctx, file)
 	if err != nil {
 		return nil, fmt.Errorf("create file record error: %w", err)
 	}
@@ -237,25 +237,8 @@ func (s *UploadService) CompleteUpload(ctx context.Context, uid int64, uploadId 
 		}
 	}()
 
-	// 从返回的 map 中获取文件 ID
-	var fileId int64
-	if fileIdVal, ok := result["fileId"]; ok {
-		switch v := fileIdVal.(type) {
-		case int64:
-			fileId = v
-		case int:
-			fileId = int64(v)
-		case float64:
-			fileId = int64(v)
-		default:
-			return nil, fmt.Errorf("unexpected type for fileId: %T", fileIdVal)
-		}
-	} else {
-		return nil, fmt.Errorf("fileId not found in result")
-	}
-
 	return &model.FileResp{
-		ID:     fileId,
+		ID:     file.ID,
 		Name:   file.Name,
 		Path:   file.Path,
 		IsDir:  file.IsDir,

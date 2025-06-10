@@ -371,13 +371,13 @@ func (h *FileHandler) ConfirmCreate() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		fileResp, err := h.upload.ConfirmUpload(c.Request.Context(), req, uuid)
+		err := h.upload.ConfirmUpload(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 
-		response.SuccessWithData(c, fileResp)
+		response.Success(c)
 	}
 }
 

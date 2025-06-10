@@ -63,7 +63,7 @@ func (s *UploadService) PreUploadCheck(ctx context.Context, req model.PreUploadC
 }
 
 // ConfirmUpload 确认上传完成
-func (s *UploadService) ConfirmUpload(ctx context.Context, req model.CreateFileReq, uid int64) (*model.FileResp, error) {
+func (s *UploadService) ConfirmUpload(ctx context.Context, req model.CreateFileReq, uid int64) error {
 	return s.file.CreateFile(ctx, req, uid)
 }
 

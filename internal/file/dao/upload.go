@@ -19,7 +19,7 @@ func NewFileDao(db *gorm.DB) *FileDao {
 }
 
 // CreateFile 创建文件/文件夹记录
-func (d *FileDao) CreateFile(ctx context.Context, file *File) (map[string]any, error) {
+func (d *FileDao) CreateFile(ctx context.Context, file *File) error {
 	now := time.Now().Unix()
 	file.Ctime = now
 	file.Utime = now
@@ -27,7 +27,7 @@ func (d *FileDao) CreateFile(ctx context.Context, file *File) (map[string]any, e
 
 	// 验证路径格式
 	if err := d.validatePath(file.Path); err != nil {
-		return nil, fmt.Errorf("invalid path: %w", err)
+		return fmt.Errorf("invalid path: %w", err)
 	}
 
 	// 确保父目录存在（如果不是根目录）
@@ -36,23 +36,20 @@ func (d *FileDao) CreateFile(ctx context.Context, file *File) (map[string]any, e
 		if parentPath != "/" {
 			exists, err := d.PathExists(ctx, file.UID, parentPath, true)
 			if err != nil {
-				return nil, fmt.Errorf("check parent directory error: %w", err)
+				return fmt.Errorf("check parent directory error: %w", err)
 			}
 			if !exists {
-				return nil, fmt.Errorf("parent directory does not exist: %s", parentPath)
+				return fmt.Errorf("parent directory does not exist: %s", parentPath)
 			}
 		}
 	}
 
 	err := d.db.WithContext(ctx).Create(file).Error
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return map[string]any{
-		"fileId": file.ID,
-		"path":   file.Path,
-	}, nil
+	return nil
 }
 
 // GetFileByPath 根据路径获取文件/文件夹

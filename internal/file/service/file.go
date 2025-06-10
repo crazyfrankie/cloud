@@ -22,17 +22,17 @@ func NewFileService(d *dao.FileDao, storage *storage.Service) *FileService {
 }
 
 // CreateFile 创建文件记录
-func (s *FileService) CreateFile(ctx context.Context, req model.CreateFileReq, uid int64) (*model.FileResp, error) {
+func (s *FileService) CreateFile(ctx context.Context, req model.CreateFileReq, uid int64) error {
 	// 验证父目录是否存在（如果不是根目录）
 	if req.Path != "/" {
 		parentPath := filepath.Dir(req.Path)
 		if parentPath != "/" {
 			exists, err := s.dao.PathExists(ctx, uid, parentPath, true)
 			if err != nil {
-				return nil, fmt.Errorf("check parent directory error: %w", err)
+				return fmt.Errorf("check parent directory error: %w", err)
 			}
 			if !exists {
-				return nil, fmt.Errorf("parent directory not found: %s", parentPath)
+				return fmt.Errorf("parent directory not found: %s", parentPath)
 			}
 		}
 	}
@@ -40,20 +40,20 @@ func (s *FileService) CreateFile(ctx context.Context, req model.CreateFileReq, u
 	// 检查路径是否已被占用
 	exists, err := s.dao.PathExists(ctx, uid, req.Path, false)
 	if err != nil {
-		return nil, fmt.Errorf("check path exists error: %w", err)
+		return fmt.Errorf("check path exists error: %w", err)
 	}
 	if exists {
-		return nil, fmt.Errorf("path already exists: %s", req.Path)
+		return fmt.Errorf("path already exists: %s", req.Path)
 	}
 
 	// 如果是文件且有哈希值，检查是否已存在相同文件
 	if !req.IsDir && req.Hash != "" {
 		fileExists, _, err := s.dao.CheckFileExists(ctx, uid, req.Hash)
 		if err != nil {
-			return nil, fmt.Errorf("check file exists error: %w", err)
+			return fmt.Errorf("check file exists error: %w", err)
 		}
 		if fileExists {
-			return nil, fmt.Errorf("file with same hash already exists")
+			return fmt.Errorf("file with same hash already exists")
 		}
 	}
 
@@ -69,40 +69,12 @@ func (s *FileService) CreateFile(ctx context.Context, req model.CreateFileReq, u
 		LastModifiedBy: strconv.FormatInt(uid, 10),
 	}
 
-	result, err := s.dao.CreateFile(ctx, file)
+	err = s.dao.CreateFile(ctx, file)
 	if err != nil {
-		return nil, fmt.Errorf("create file error: %w", err)
+		return fmt.Errorf("create file error: %w", err)
 	}
 
-	// 从返回的 map 中获取文件 ID
-	var fileId int64
-	if fileIdVal, ok := result["fileId"]; ok {
-		switch v := fileIdVal.(type) {
-		case int64:
-			fileId = v
-		case int:
-			fileId = int64(v)
-		case float64:
-			fileId = int64(v)
-		default:
-			return nil, fmt.Errorf("unexpected type for fileId: %T", fileIdVal)
-		}
-	} else {
-		return nil, fmt.Errorf("fileId not found in result")
-	}
-
-	return &model.FileResp{
-		ID:     fileId,
-		Name:   req.Name,
-		Path:   req.Path,
-		IsDir:  req.IsDir,
-		Size:   req.Size,
-		URL:    req.URL,
-		Hash:   req.Hash,
-		Ctime:  file.Ctime,
-		Utime:  file.Utime,
-		Status: file.Status,
-	}, nil
+	return nil
 }
 
 // FindByIDs 查找所有文件记录
@@ -229,7 +201,8 @@ func (s *FileService) CopyPath(ctx context.Context, uid int64, sourcePath, targe
 			DeviceId:       sourceFile.DeviceId,
 			LastModifiedBy: strconv.FormatInt(uid, 10),
 		}
-		_, err = s.dao.CreateFile(ctx, newFile)
+		err = s.dao.CreateFile(ctx, newFile)
+
 		return err
 	}
 
@@ -249,7 +222,7 @@ func (s *FileService) copyFolderRecursive(ctx context.Context, uid int64, source
 		LastModifiedBy: strconv.FormatInt(uid, 10),
 	}
 
-	_, err := s.dao.CreateFile(ctx, newFolder)
+	err := s.dao.CreateFile(ctx, newFolder)
 	if err != nil {
 		return fmt.Errorf("create target folder error: %w", err)
 	}
@@ -285,7 +258,7 @@ func (s *FileService) copyFolderRecursive(ctx context.Context, uid int64, source
 				DeviceId:       item.DeviceId,
 				LastModifiedBy: strconv.FormatInt(uid, 10),
 			}
-			_, err = s.dao.CreateFile(ctx, newFile)
+			err = s.dao.CreateFile(ctx, newFile)
 			if err != nil {
 				return fmt.Errorf("copy file error: %w", err)
 			}

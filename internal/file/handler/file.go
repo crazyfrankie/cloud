@@ -108,22 +108,13 @@ func (h *FileHandler) CreateItem() gin.HandlerFunc {
 
 		uuid := c.MustGet("uuid").(int64)
 
-		fileResp, err := h.file.CreateFile(c.Request.Context(), req, uuid)
+		err := h.file.CreateFile(c.Request.Context(), req, uuid)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 
-		// 转换为 CreateItemResp
-		createResp := &model.CreateItemResp{
-			ID:    fileResp.ID,
-			Name:  fileResp.Name,
-			Path:  fileResp.Path,
-			IsDir: fileResp.IsDir,
-			Ctime: fileResp.Ctime,
-		}
-
-		response.SuccessWithData(c, createResp)
+		response.Success(c)
 	}
 }
 

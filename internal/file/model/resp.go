@@ -98,20 +98,11 @@ type DownloadFileInfo struct {
 
 // DownloadFileResp 下载文件响应
 type DownloadFileResp struct {
-	Type      string           `json:"type"`              // single/zip
-	Files     []DownloadDetail `json:"files"`             // 文件列表
-	TotalSize int64            `json:"totalSize"`         // 总大小
-	ZipName   string           `json:"zipName,omitempty"` // ZIP文件名（多文件时）
-	DLink     string           `json:"dlink,omitempty"`   // 直接下载链接（单文件时）
-	ZipData   []byte           `json:"-"`                 // ZIP数据（不序列化到JSON）
-}
-
-// DownloadDetail 下载文件详情
-type DownloadDetail struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Size  int64  `json:"size"`
-	DLink string `json:"dlink"` // 预签名下载链接
+	Type      string `json:"type"`              // single/zip
+	TotalSize int64  `json:"totalSize"`         // 总大小
+	ZipName   string `json:"zipName,omitempty"` // ZIP文件名（多文件时）
+	DLink     string `json:"dlink,omitempty"`   // 直接下载链接（单文件时）
+	ZipData   []byte `json:"-"`                 // ZIP数据（不序列化到JSON）
 }
 
 // DownloadProgressInfo 下载进度信息

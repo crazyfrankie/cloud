@@ -69,14 +69,6 @@ func (s *DownloadService) DownloadSmallFiles(ctx context.Context, uid int64, fil
 			Type:      "single",
 			TotalSize: file.Size,
 			DLink:     presignedURL,
-			Files: []model.DownloadDetail{
-				{
-					ID:    file.ID,
-					Name:  file.Name,
-					Size:  file.Size,
-					DLink: presignedURL,
-				},
-			},
 		}, nil
 	}
 
@@ -94,19 +86,8 @@ func (s *DownloadService) DownloadSmallFiles(ctx context.Context, uid int64, fil
 		zipName += ".zip"
 	}
 
-	// 构建文件详情列表
-	downloadDetails := make([]model.DownloadDetail, 0, len(files))
-	for _, file := range files {
-		downloadDetails = append(downloadDetails, model.DownloadDetail{
-			ID:   file.ID,
-			Name: file.Name,
-			Size: file.Size,
-		})
-	}
-
 	return &model.DownloadFileResp{
 		Type:      "zip",
-		Files:     downloadDetails,
 		TotalSize: totalSize,
 		ZipName:   zipName,
 		ZipData:   zipData,

@@ -31,13 +31,12 @@ func (h *StorageHandler) Presign() gin.HandlerFunc {
 		filename := c.PostForm("filename")
 		filesize := c.PostForm("filesize")
 		size, _ := strconv.ParseInt(filesize, 10, 64)
-		filehash := c.PostForm("filehash")
 
 		typ := c.Param("type")
 
 		uid := c.MustGet("uid").(int64)
 
-		url, err := h.svc.Presign(c.Request.Context(), uid, filename, size, filehash, typ)
+		url, err := h.svc.Presign(c.Request.Context(), uid, filename, size, typ)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(30000, err.Error()))
 			return

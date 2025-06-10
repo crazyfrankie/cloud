@@ -51,7 +51,7 @@ func (s *UploadService) PreUploadCheck(ctx context.Context, req model.PreUploadC
 		resp.FileID = existingFile.ID
 		resp.FilePath = existingFile.Path
 	} else {
-		presignedUrl, err := s.storageService.Presign(ctx, uid, req.Name, req.Size, req.Hash, "file")
+		presignedUrl, err := s.storageService.Presign(ctx, uid, req.Name, req.Size, "file")
 		if err != nil {
 			return nil, fmt.Errorf("generate presigned URL error: %w", err)
 		}

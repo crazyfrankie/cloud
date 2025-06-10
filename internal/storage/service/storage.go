@@ -22,15 +22,14 @@ func NewStorageService(cli *minio.Client) *StorageService {
 }
 
 // Presign 生成带严格策略的预签名 URL
-func (s *StorageService) Presign(ctx context.Context, uid int64, filename string, fileSize int64, fileHash string, typ string) (string, error) {
+func (s *StorageService) Presign(ctx context.Context, uid int64, filename string, fileSize int64, typ string) (string, error) {
 	var objectKey string
 	var bucket string
 
+	objectKey = fmt.Sprintf("%d/%s", uid, filename)
 	if typ == "file" {
-		objectKey = fmt.Sprintf("%d/%s_%s", uid, fileHash[:8], filename)
 		bucket = consts.FileBucket
 	} else {
-		objectKey = fmt.Sprintf("%d/%s", uid, filename)
 		bucket = consts.UserBucket
 	}
 

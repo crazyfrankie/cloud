@@ -15,11 +15,12 @@ var (
 )
 
 type Config struct {
-	System System `yaml:"system"`
-	MySQL  MySQL  `yaml:"mysql"`
-	Redis  Redis  `yaml:"redis"`
-	MinIO  MinIO  `yaml:"minio"`
-	JWT    JWT    `yaml:"jwt"`
+	System     System     `yaml:"system"`
+	MySQL      MySQL      `yaml:"mysql"`
+	Redis      Redis      `yaml:"redis"`
+	MinIO      MinIO      `yaml:"minio"`
+	JWT        JWT        `yaml:"jwt"`
+	KKFileView KKFileView `yaml:"kkFileView"`
 }
 
 type System struct {
@@ -45,6 +46,10 @@ type Redis struct {
 type JWT struct {
 	SignAlgo  string `yaml:"signAlgo"`
 	SecretKey string `yaml:"secretKey"`
+}
+
+type KKFileView struct {
+	BaseURL string `yaml:"baseURL"`
 }
 
 func GetConf() *Config {

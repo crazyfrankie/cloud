@@ -45,7 +45,8 @@ func (s *StorageService) Presign(ctx context.Context, uid int64, filename string
 		return "", err
 	}
 
-	return preUrl.String(), nil
+	signedUrl := strings.Replace(preUrl.String(), "minio:9000", "localhost:9002", 1)
+	return signedUrl, nil
 }
 
 // PresignForChunk 为分块上传生成预签名 URL
@@ -58,7 +59,8 @@ func (s *StorageService) PresignForChunk(ctx context.Context, chunkKey string) (
 		return "", fmt.Errorf("generate chunk presigned URL error: %w", err)
 	}
 
-	return preUrl.String(), nil
+	signedUrl := strings.Replace(preUrl.String(), "minio:9000", "localhost:9002", 1)
+	return signedUrl, nil
 }
 
 // PresignDownload 为小文件下载生成预签名 URL
@@ -76,7 +78,8 @@ func (s *StorageService) PresignDownload(ctx context.Context, objectKey string, 
 		return "", fmt.Errorf("generate download presigned URL error: %w", err)
 	}
 
-	return preUrl.String(), nil
+	signedUrl := strings.Replace(preUrl.String(), "minio:9000", "localhost:9002", 1)
+	return signedUrl, nil
 }
 
 // DeleteObject 删除对象

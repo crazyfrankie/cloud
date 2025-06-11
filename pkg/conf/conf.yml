@@ -18,3 +18,6 @@ redis:
 jwt:
   signAlgo: HS256
   secretKey: dF7mL6oP6uE3fD3dT3vI9rA5bA6kL8aK
+
+kkFileView:
+  baseURL: "http://localhost:8012"

@@ -24,7 +24,8 @@ func InitFileModule(db *gorm.DB, st *storage.Module, rdb redis.Cmdable, minio2 *
 	fileService := service.NewFileService(fileDao, storageService)
 	uploadService := service.NewUploadService(fileDao, fileService, storageService)
 	downloadService := service.NewDownloadService(fileDao, storageService, minio2)
-	fileHandler := handler.NewFileHandler(uploadService, fileService, downloadService)
+	previewService := service.NewPreviewService(fileService, storageService)
+	fileHandler := handler.NewFileHandler(uploadService, fileService, downloadService, previewService)
 	module := &Module{
 		Handler: fileHandler,
 	}

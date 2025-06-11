@@ -116,3 +116,30 @@ type DownloadProgressInfo struct {
 	LastModified string `json:"lastModified,omitempty"` // 最后修改时间
 	ETag         string `json:"etag,omitempty"`         // 文件ETag
 }
+
+// PreviewFileResp 文件预览响应
+type PreviewFileResp struct {
+	FileID         int64  `json:"fileId"`
+	FileName       string `json:"fileName"`
+	FileType       string `json:"fileType"`       // image/text/pdf/video/audio
+	PreviewType    string `json:"previewType"`    // direct/proxy/text/image
+	PreviewURL     string `json:"previewUrl"`     // 预览URL
+	ThumbnailURL   string `json:"thumbnailUrl"`   // 缩略图URL（如果有）
+	ContentType    string `json:"contentType"`    // MIME类型
+	Size           int64  `json:"size"`           // 文件大小
+	IsEditable     bool   `json:"isEditable"`     // 是否可编辑
+	TextContent    string `json:"textContent"`    // 文本内容（仅文本文件）
+	Duration       int64  `json:"duration"`       // 视频/音频时长（秒）
+	Width          int    `json:"width"`          // 图片/视频宽度
+	Height         int    `json:"height"`         // 图片/视频高度
+	MaxPreviewSize int64  `json:"maxPreviewSize"` // 最大预览大小限制
+}
+
+// UpdateContentResp 更新内容响应
+type UpdateContentResp struct {
+	Success      bool   `json:"success"`
+	NewHash      string `json:"newHash"`      // 新的文件哈希
+	NewSize      int64  `json:"newSize"`      // 新的文件大小
+	UpdateTime   int64  `json:"updateTime"`   // 更新时间
+	PresignedURL string `json:"presignedUrl"` // 用于上传更新内容的预签名URL
+}

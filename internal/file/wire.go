@@ -25,6 +25,7 @@ func InitFileModule(db *gorm.DB, st *storage.Module, rdb redis.Cmdable, minio *m
 		service.NewFileService,
 		service.NewUploadService,
 		service.NewDownloadService,
+		service.NewPreviewService,
 		handler.NewFileHandler,
 
 		wire.FieldsOf(new(*storage.Module), "Service"),

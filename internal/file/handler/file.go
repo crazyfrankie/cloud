@@ -17,13 +17,15 @@ type FileHandler struct {
 	file     *service.FileService
 	upload   *service.UploadService
 	download *service.DownloadService
+	preview  *service.PreviewService
 }
 
-func NewFileHandler(u *service.UploadService, f *service.FileService, d *service.DownloadService) *FileHandler {
+func NewFileHandler(u *service.UploadService, f *service.FileService, d *service.DownloadService, p *service.PreviewService) *FileHandler {
 	return &FileHandler{
 		upload:   u,
 		file:     f,
 		download: d,
+		preview:  p,
 	}
 }
 
@@ -46,6 +48,14 @@ func (h *FileHandler) RegisterRoute(r *gin.Engine) {
 
 		fileGroup.GET("/stats", h.GetUserFileStats())           // 获取用户文件统计
 		fileGroup.GET("/:fileId/versions", h.GetFileVersions()) // 获取文件版本
+
+		// 预览相关接口
+		fileGroup.GET("/:fileId/preview", h.GetFilePreview())                // 获取文件预览信息
+		fileGroup.POST("/:fileId/content/prepare", h.PrepareContentUpdate()) // 准备文件内容更新
+		fileGroup.POST("/:fileId/content/confirm", h.ConfirmContentUpdate()) // 确认文件内容更新
+
+		// 健康检查接口
+		fileGroup.GET("/preview/health", h.CheckKKFileViewHealth()) // 检查KKFileView服务健康状态
 	}
 
 	downloadGroup := fileGroup.Group("download")
@@ -240,14 +250,13 @@ func (h *FileHandler) UpdateFileInfo() gin.HandlerFunc {
 		}
 
 		uuid := c.MustGet("uuid").(int64)
-
-		fileInfo, err := h.file.UpdateFile(c.Request.Context(), fileId, uuid, req)
+		err = h.file.UpdateFile(c.Request.Context(), fileId, uuid, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 
-		response.SuccessWithData(c, fileInfo)
+		response.Success(c)
 	}
 }
 
@@ -619,5 +628,139 @@ func (h *FileHandler) GetDownloadProgress() gin.HandlerFunc {
 		}
 
 		response.SuccessWithData(c, progress)
+	}
+}
+
+// GetFilePreview 获取文件预览信息
+// @Summary 获取文件预览信息
+// @Description 获取文件的预览数据，支持文档、图片等格式
+// @Tags 文件预览
+// @Accept json
+// @Produce json
+// @Param fileId path string true "文件ID"
+// @Success 200 {object} response.Response{data=model.PreviewFileResp} "操作成功"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/{fileId}/preview [get]
+func (h *FileHandler) GetFilePreview() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileIdStr := c.Param("fileId")
+		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file id"))
+			return
+		}
+
+		uuid := c.MustGet("uuid").(int64)
+
+		previewData, err := h.preview.GetFilePreview(c.Request.Context(), fileId, uuid)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
+			return
+		}
+
+		response.SuccessWithData(c, previewData)
+	}
+}
+
+// PrepareContentUpdate 准备文件内容更新
+// @Summary 准备文件内容更新
+// @Description 为文件内容更新生成预签名URL
+// @Tags 文件预览
+// @Accept json
+// @Produce json
+// @Param fileId path string true "文件ID"
+// @Param req body model.UpdateFileContentReq true "文件内容更新请求"
+// @Success 200 {object} response.Response{data=model.UpdateContentResp} "操作成功"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/{fileId}/content/prepare [post]
+func (h *FileHandler) PrepareContentUpdate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileIdStr := c.Param("fileId")
+		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file id"))
+			return
+		}
+
+		var req model.UpdateFileContentReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error: "+err.Error()))
+			return
+		}
+
+		uuid := c.MustGet("uuid").(int64)
+
+		updateResp, err := h.preview.PrepareContentUpdate(c.Request.Context(), fileId, uuid, req.Content)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
+			return
+		}
+
+		response.SuccessWithData(c, updateResp)
+	}
+}
+
+// ConfirmContentUpdate 确认文件内容更新
+// @Summary 确认文件内容更新
+// @Description 确认文件内容已更新到存储
+// @Tags 文件预览
+// @Accept json
+// @Produce json
+// @Param fileId path string true "文件ID"
+// @Param req body struct{Hash string "json:\"hash\""; Size int64 "json:\"size\""} true "确认更新请求"
+// @Success 200 {object} response.Response "操作成功"
+// @Failure 400 {object} response.Response "参数错误(code=20001)"
+// @Failure 500 {object} response.Response "系统错误(code=50000)"
+// @Router /files/{fileId}/content/confirm [post]
+func (h *FileHandler) ConfirmContentUpdate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileIdStr := c.Param("fileId")
+		fileId, err := strconv.ParseInt(fileIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "invalid file id"))
+			return
+		}
+
+		var req struct {
+			Hash string `json:"hash" binding:"required"`
+			Size int64  `json:"size" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error: "+err.Error()))
+			return
+		}
+
+		uuid := c.MustGet("uuid").(int64)
+
+		err = h.preview.ConfirmContentUpdate(c.Request.Context(), fileId, uuid, req.Hash, req.Size)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
+			return
+		}
+
+		response.Success(c)
+	}
+}
+
+// CheckKKFileViewHealth 检查KKFileView服务健康状态
+// @Summary 检查KKFileView服务健康状态
+// @Description 检查KKFileView服务是否可用
+// @Tags 文件预览
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response "服务正常"
+// @Failure 500 {object} response.Response "服务异常"
+// @Router /files/preview/health [get]
+func (h *FileHandler) CheckKKFileViewHealth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		err := h.preview.CheckKKFileViewHealth(c.Request.Context())
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
+			return
+		}
+
+		response.Success(c)
 	}
 }

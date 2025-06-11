@@ -68,3 +68,13 @@ type DownloadFileReq struct {
 	FileIDs []int64 `json:"fileIds" binding:"required"` // 文件ID列表
 	ZipName string  `json:"zipName"`                    // 多文件时的ZIP文件名（可选）
 }
+
+// PreviewFileReq 文件预览请求
+type PreviewFileReq struct {
+	FileID int64 `json:"fileId" binding:"required"` // 文件ID
+}
+
+// UpdateFileContentReq 文件内容更新请求
+type UpdateFileContentReq struct {
+	Content string `json:"content" binding:"required"` // 文件内容
+}

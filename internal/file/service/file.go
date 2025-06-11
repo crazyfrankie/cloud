@@ -290,7 +290,7 @@ func (s *FileService) GetFileById(ctx context.Context, fileId int64, uid int64) 
 }
 
 // UpdateFile 更新文件信息
-func (s *FileService) UpdateFile(ctx context.Context, fileId int64, uid int64, req model.UpdateFileReq) (*model.FileResp, error) {
+func (s *FileService) UpdateFile(ctx context.Context, fileId int64, uid int64, req model.UpdateFileReq) error {
 	// 构建更新字段
 	updates := make(map[string]interface{})
 
@@ -300,7 +300,7 @@ func (s *FileService) UpdateFile(ctx context.Context, fileId int64, uid int64, r
 	if req.NewPath != nil {
 		// 验证新路径
 		if err := s.validatePath(*req.NewPath); err != nil {
-			return nil, fmt.Errorf("invalid new path: %w", err)
+			return fmt.Errorf("invalid new path: %w", err)
 		}
 		updates["path"] = *req.NewPath
 	}
@@ -319,10 +319,12 @@ func (s *FileService) UpdateFile(ctx context.Context, fileId int64, uid int64, r
 
 	err := s.dao.UpdateFile(ctx, fileId, uid, updates)
 	if err != nil {
-		return nil, fmt.Errorf("update file error: %w", err)
+		return fmt.Errorf("update file error: %w", err)
 	}
 
-	return s.GetFileById(ctx, fileId, uid)
+	_, err = s.GetFileById(ctx, fileId, uid)
+
+	return err
 }
 
 // GetUserFileStats 获取用户文件统计信息

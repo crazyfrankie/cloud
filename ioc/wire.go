@@ -81,10 +81,11 @@ func InitWeb(mws []gin.HandlerFunc, user *user.Handler, auth *auth.Handler,
 
 	srv.Use(mws...)
 
-	user.RegisterRoute(srv)
-	auth.RegisterRoute(srv)
-	storage.RegisterRoute(srv)
-	file.RegisterRoute(srv)
+	apiGroup := srv.Group("api")
+	user.RegisterRoute(apiGroup)
+	auth.RegisterRoute(apiGroup)
+	storage.RegisterRoute(apiGroup)
+	file.RegisterRoute(apiGroup)
 
 	return srv
 }
@@ -107,8 +108,7 @@ func InitMws(t *auth.TokenService) []gin.HandlerFunc {
 		},
 
 		middlewares.NewAuthnHandler(t).
-			IgnorePath("/user/register").
-			IgnorePath("/auth/login").
+			IgnorePath("/api/auth/login").
 			Auth(),
 	}
 }

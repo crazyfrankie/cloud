@@ -19,7 +19,7 @@ func NewStorageHandler(s *service.StorageService) *StorageHandler {
 	return &StorageHandler{svc: s}
 }
 
-func (h *StorageHandler) RegisterRoute(r *gin.Engine) {
+func (h *StorageHandler) RegisterRoute(r *gin.RouterGroup) {
 	storageGroup := r.Group("storage")
 	{
 		storageGroup.POST("presign/:type", h.Presign())

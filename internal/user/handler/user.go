@@ -19,31 +19,12 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 	return &UserHandler{svc: svc}
 }
 
-func (h *UserHandler) RegisterRoute(r *gin.Engine) {
+func (h *UserHandler) RegisterRoute(r *gin.RouterGroup) {
 	userGroup := r.Group("user")
 	{
-		userGroup.POST("register", h.UserRegister())
 		userGroup.GET("", h.GetUserInfo())
 		userGroup.PATCH("update/info", h.UpdateUserInfo())
 		userGroup.PATCH("update/avatar", h.UpdateAvatar())
-	}
-}
-
-func (h *UserHandler) UserRegister() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req model.RegisterReq
-		if err := c.ShouldBind(&req); err != nil {
-			response.Error(c, http.StatusBadRequest, gerrors.NewBizError(20001, "bind error "+err.Error()))
-			return
-		}
-
-		err := h.svc.CreateUser(c.Request.Context(), req.NickName, req.Password)
-		if err != nil {
-			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
-			return
-		}
-
-		response.Success(c)
 	}
 }
 

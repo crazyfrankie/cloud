@@ -23,20 +23,24 @@ func NewUserService(d *dao.UserDao, node *snowflake.Node, minio *minio.Client) *
 	return &UserService{dao: d, node: node, minio: minio}
 }
 
-func (s *UserService) CreateUser(ctx context.Context, name string, password string) error {
+func (s *UserService) CreateUser(ctx context.Context, name string, password string) (*dao.User, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	uuid := s.node.GenerateCode()
-
-	return s.dao.Insert(ctx, &dao.User{
+	user := &dao.User{
 		UUID:     uuid,
 		Nickname: name,
 		Avatar:   consts.DefaultAvatar,
 		Password: hash,
-	})
+	}
+	if err := s.dao.Insert(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (s *UserService) GetUserInfo(ctx context.Context, uid int64) (model.UserResp, error) {

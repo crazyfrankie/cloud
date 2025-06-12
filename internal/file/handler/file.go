@@ -29,7 +29,7 @@ func NewFileHandler(u *service.UploadService, f *service.FileService, d *service
 	}
 }
 
-func (h *FileHandler) RegisterRoute(r *gin.Engine) {
+func (h *FileHandler) RegisterRoute(r *gin.RouterGroup) {
 	fileGroup := r.Group("files")
 	{
 		fileGroup.GET("", h.ListContents())              // 列出目录内容

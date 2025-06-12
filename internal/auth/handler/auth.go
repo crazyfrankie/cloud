@@ -22,17 +22,17 @@ func NewAuthHandler(auth *service.AuthService) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) RegisterRoute(r *gin.Engine) {
+func (h *AuthHandler) RegisterRoute(r *gin.RouterGroup) {
 	authGroup := r.Group("auth")
 	{
-		authGroup.POST("login", h.Login())
+		authGroup.POST("login", h.Auth())
 		authGroup.GET("logout", h.Logout())
 	}
 }
 
-// Login
-// @Summary 用户登录
-// @Description 用户登录接口
+// Auth
+// @Summary 用户登录/注册
+// @Description 用户登录/注册接口
 // @Tags Auth 管理
 // @Accept json
 // @Produce json
@@ -41,7 +41,7 @@ func (h *AuthHandler) RegisterRoute(r *gin.Engine) {
 // @Failure 400 {object} response.Response "参数错误(code=20001)"
 // @Failure 500 {object} response.Response "系统错误(code=50000)"
 // @Router /auth/login [post]
-func (h *AuthHandler) Login() gin.HandlerFunc {
+func (h *AuthHandler) Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req model.LoginReq
 		if err := c.ShouldBind(&req); err != nil {
@@ -49,7 +49,7 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			return
 		}
 
-		tokens, err := h.auth.Login(c.Request.Context(), req, c.Request.UserAgent())
+		tokens, err := h.auth.LoginOrRegister(c.Request.Context(), req, c.Request.UserAgent())
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return

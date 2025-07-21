@@ -47,11 +47,12 @@ func (h *AuthnHandler) Auth() gin.HandlerFunc {
 			response.Error(c, http.StatusUnauthorized, gerrors.NewBizError(40001, err.Error()))
 			return
 		}
-		tokens, err := h.token.TryRefresh(refresh, c.Request.UserAgent())
+		tokens, uuid, err := h.token.TryRefresh(refresh, c.Request.UserAgent())
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
+		c.Set("uuid", uuid)
 		utils.SetTokens(c, tokens)
 
 		c.Next()

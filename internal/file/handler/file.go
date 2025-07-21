@@ -49,7 +49,6 @@ func (h *FileHandler) RegisterRoute(r *gin.RouterGroup) {
 		fileGroup.GET("/stats", h.GetUserFileStats())           // 获取用户文件统计
 		fileGroup.GET("/:fileId/versions", h.GetFileVersions()) // 获取文件版本
 
-		// 预览相关接口 - 简化后只保留基本预览
 		fileGroup.GET("/:fileId/preview", h.GetFilePreview()) // 获取文件预览信息
 		fileGroup.GET("/:fileId/stream", h.StreamFile())      // 流式传输文件（用于PDF预览）
 	}

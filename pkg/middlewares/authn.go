@@ -33,23 +33,25 @@ func (h *AuthnHandler) Auth() gin.HandlerFunc {
 		}
 
 		access, err := h.token.GetAccessToken(c)
-		if err == nil {
-			if claims, err := h.token.ParseToken(access); err == nil {
-				c.Set("uid", claims.UID)
-				c.Set("uuid", claims.UUID)
-				c.Next()
-				return
-			}
+		if err != nil {
+			response.Abort(c, http.StatusUnauthorized, gerrors.NewBizError(40001, "unauthorized"))
+			return
+		}
+		if claims, err := h.token.ParseToken(access); err == nil {
+			c.Set("uid", claims.UID)
+			c.Set("uuid", claims.UUID)
+			c.Next()
+			return
 		}
 
 		refresh, err := c.Cookie("cloud_refresh")
 		if err != nil {
-			response.Error(c, http.StatusUnauthorized, gerrors.NewBizError(40001, err.Error()))
+			response.Abort(c, http.StatusUnauthorized, gerrors.NewBizError(40001, err.Error()))
 			return
 		}
 		tokens, uuid, err := h.token.TryRefresh(refresh, c.Request.UserAgent())
 		if err != nil {
-			response.Error(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
+			response.Abort(c, http.StatusInternalServerError, gerrors.NewBizError(50000, err.Error()))
 			return
 		}
 		c.Set("uuid", uuid)

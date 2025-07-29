@@ -2,13 +2,13 @@ package response
 
 import (
 	"net/http"
-	
+
 	"github.com/crazyfrankie/gem/gerrors"
 	"github.com/gin-gonic/gin"
 )
 
 type Response struct {
-	Code    int    `json:"code"`
+	Code    int32  `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data"`
 }
@@ -16,13 +16,28 @@ type Response struct {
 func Error(c *gin.Context, code int, err error) {
 	if bizErr, ok := gerrors.FromBizStatusError(err); ok {
 		c.JSON(code, Response{
-			Code:    int(bizErr.BizStatusCode()),
+			Code:    bizErr.BizStatusCode(),
 			Message: bizErr.BizMessage(),
 		})
 		return
 	}
 
 	c.JSON(code, Response{
+		Code:    50000,
+		Message: err.Error(),
+	})
+}
+
+func Abort(c *gin.Context, code int, err error) {
+	if bizErr, ok := gerrors.FromBizStatusError(err); ok {
+		c.AbortWithStatusJSON(code, Response{
+			Code:    bizErr.BizStatusCode(),
+			Message: bizErr.BizMessage(),
+		})
+		return
+	}
+
+	c.AbortWithStatusJSON(code, Response{
 		Code:    50000,
 		Message: err.Error(),
 	})
